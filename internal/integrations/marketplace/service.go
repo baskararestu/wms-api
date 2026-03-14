@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -40,6 +41,10 @@ type service struct {
 	retryDropped       atomic.Uint64
 	idempotencySkipped atomic.Uint64
 	inflightSkipped    atomic.Uint64
+
+	metricsMu      sync.RWMutex
+	lastRetryRunAt time.Time
+	lastErrorSample string
 }
 
 var (
@@ -291,6 +296,7 @@ func (s *service) sendWebhookWithIdempotency(kind, orderSN, status string) error
 	if err := s.dispatchWebhook(kind, orderSN, status); err != nil {
 		s.dispatchFailure.Add(1)
 		s.retryQueued.Add(1)
+		s.setLastErrorSample(err)
 		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to dispatch webhook, queued for retry")
 		s.enqueueWebhookRetry(webhookRetryJob{
 			Kind:     kind,
@@ -438,6 +444,8 @@ func (s *service) processWebhookRetries() {
 		return
 	}
 
+	s.setLastRetryRunAt(time.Now())
+
 	now := fmt.Sprintf("%d", time.Now().Unix())
 	jobs, err := redis.Client.ZRangeByScore(redis.Ctx, webhookRetryZSetKey, &goredis.ZRangeBy{
 		Min:   "-inf",
@@ -445,6 +453,7 @@ func (s *service) processWebhookRetries() {
 		Count: 20,
 	}).Result()
 	if err != nil {
+		s.setLastErrorSample(err)
 		xlogger.Logger.Warn().Err(err).Msg("Failed to fetch webhook retry jobs")
 		return
 	}
@@ -465,6 +474,7 @@ func (s *service) processWebhookRetries() {
 
 		lockAcquired, err := s.acquireWebhookInflightLock(job.Kind, job.OrderSN, job.Status)
 		if err != nil {
+			s.setLastErrorSample(err)
 			xlogger.Logger.Warn().Err(err).Str("kind", job.Kind).Str("order_sn", job.OrderSN).Msg("Failed to acquire retry inflight lock")
 			continue
 		}
@@ -475,6 +485,7 @@ func (s *service) processWebhookRetries() {
 
 		if err := s.dispatchWebhook(job.Kind, job.OrderSN, job.Status); err != nil {
 			s.retryFailure.Add(1)
+			s.setLastErrorSample(err)
 			s.releaseWebhookInflightLock(job.Kind, job.OrderSN, job.Status)
 			if job.Attempts >= webhookRetryMaxAttempts {
 				s.retryDropped.Add(1)
@@ -498,6 +509,8 @@ func (s *service) processWebhookRetries() {
 }
 
 func (s *service) GetWebhookDeliveryMetrics() WebhookDeliveryMetrics {
+	lastRetryRunAt, lastErrorSample := s.getRuntimeMetricsSnapshot()
+
 	metrics := WebhookDeliveryMetrics{
 		DispatchSuccess:    s.dispatchSuccess.Load(),
 		DispatchFailure:    s.dispatchFailure.Load(),
@@ -508,6 +521,8 @@ func (s *service) GetWebhookDeliveryMetrics() WebhookDeliveryMetrics {
 		IdempotencySkipped: s.idempotencySkipped.Load(),
 		InflightSkipped:    s.inflightSkipped.Load(),
 		PendingRetry:       0,
+		LastRetryRunAt:     lastRetryRunAt,
+		LastErrorSample:    lastErrorSample,
 	}
 
 	if redis.Client != nil {
@@ -518,6 +533,34 @@ func (s *service) GetWebhookDeliveryMetrics() WebhookDeliveryMetrics {
 	}
 
 	return metrics
+}
+
+func (s *service) setLastRetryRunAt(t time.Time) {
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.lastRetryRunAt = t
+}
+
+func (s *service) setLastErrorSample(err error) {
+	if err == nil {
+		return
+	}
+
+	s.metricsMu.Lock()
+	defer s.metricsMu.Unlock()
+	s.lastErrorSample = err.Error()
+}
+
+func (s *service) getRuntimeMetricsSnapshot() (string, string) {
+	s.metricsMu.RLock()
+	defer s.metricsMu.RUnlock()
+
+	lastRun := ""
+	if !s.lastRetryRunAt.IsZero() {
+		lastRun = s.lastRetryRunAt.UTC().Format(time.RFC3339)
+	}
+
+	return lastRun, s.lastErrorSample
 }
 
 func (s *service) cleanupRetryJob(job webhookRetryJob, raw string) {

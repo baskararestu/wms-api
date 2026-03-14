@@ -150,4 +150,6 @@ type WebhookDeliveryMetrics struct {
 	IdempotencySkipped uint64 `json:"idempotency_skipped"`
 	InflightSkipped   uint64 `json:"inflight_skipped"`
 	PendingRetry      int64  `json:"pending_retry"`
+	LastRetryRunAt    string `json:"last_retry_run_at"`
+	LastErrorSample   string `json:"last_error_sample"`
 }
