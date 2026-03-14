@@ -31,12 +31,3 @@ type RefreshToken struct {
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 	User      User       `gorm:"constraint:OnDelete:CASCADE;" json:"-"`
 }
-
-// MarketplaceCredential stores OAuth tokens for a specific shop
-type MarketplaceCredential struct {
-	BaseModel
-	ShopID       string    `gorm:"type:varchar(100);uniqueIndex;not null" json:"shop_id"`
-	AccessToken  string    `gorm:"type:text;not null" json:"-"`
-	RefreshToken string    `gorm:"type:text;not null" json:"-"`
-	ExpiresAt    time.Time `json:"expires_at"` // Calculated by adding 'expires_in' (300) to current time
-}
