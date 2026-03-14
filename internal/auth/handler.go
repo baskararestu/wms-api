@@ -21,8 +21,6 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Post /api/v1/auth/login
 	router.Post("/login", validation.New[LoginRequest](), h.Login)
-	// Post /api/v1/auth/register (Helpful for seeding tests, typically not public but useful here)
-	router.Post("/register", validation.New[LoginRequest](), h.Register)
 }
 
 // Login handles the user authentication and token generation
@@ -44,25 +42,5 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		Code:    fiber.StatusOK,
 		Message: "Login successful",
 		Data:    res,
-	})
-}
-
-// Register handles creation of a new internal user
-func (h *Handler) Register(c *fiber.Ctx) error {
-	req := c.Locals("payload").(*LoginRequest)
-
-	err := h.service.Register(*req)
-	if err != nil {
-		xlogger.Logger.Warn().Str("email", req.Email).Err(err).Msg("Registration failed")
-		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
-			Code:    fiber.StatusBadRequest,
-			Message: err.Error(),
-		})
-	}
-
-	xlogger.Logger.Info().Str("email", req.Email).Msg("New user registered")
-	return c.Status(fiber.StatusCreated).JSON(response.SuccessResponse{
-		Code:    fiber.StatusCreated,
-		Message: "User registered successfully",
 	})
 }

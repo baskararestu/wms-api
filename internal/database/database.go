@@ -2,12 +2,12 @@ package database
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/baskararestu/wms-api/internal/auth"
 	"github.com/baskararestu/wms-api/internal/config"
 	"github.com/baskararestu/wms-api/internal/orders"
+	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -38,15 +38,15 @@ func ConnectDB() {
 		if err == nil {
 			break
 		}
-		log.Printf("Failed to connect to database. Retrying in 2 seconds... (%d/5)\n", i+1)
+		xlogger.Logger.Warn().Msgf("Failed to connect to database. Retrying in 2 seconds... (%d/5)", i+1)
 		time.Sleep(2 * time.Second)
 	}
 
 	if err != nil {
-		log.Fatalf("Fatal: Could not connect to database after 5 retries: %v\n", err)
+		xlogger.Logger.Fatal().Err(err).Msg("Could not connect to database after 5 retries")
 	}
 
-	log.Println("✅ Successfully connected to PostgreSQL Database!")
+	xlogger.Logger.Info().Msg("✅ Successfully connected to PostgreSQL Database!")
 
 	// Auto Migrate the schemas
 	err = DB.AutoMigrate(
@@ -56,8 +56,11 @@ func ConnectDB() {
 		&orders.OrderItem{},
 	)
 	if err != nil {
-		log.Fatalf("Failed to run migrations: %v\n", err)
+		xlogger.Logger.Fatal().Err(err).Msg("Failed to run migrations")
 	}
 	
-	log.Println("✅ Database Migration completed successfully!")
+	xlogger.Logger.Info().Msg("✅ Database Migration completed successfully!")
+
+	// Seed Defaults
+	SeedAll(DB)
 }
