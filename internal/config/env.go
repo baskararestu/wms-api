@@ -28,17 +28,17 @@ var App Config
 // LoadConfig loads environment variables and populates the global App struct.
 func LoadConfig() error {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, relying on system environment variables")
+		log.Fatalf("Fatal: Error loading .env file: %v", err)
 	}
 
 	App = Config{
 		AppEnv:             getEnv("APP_ENV", "development"),
 		JWTSecret:          getEnv("JWT_SECRET", "supersecretkey"),
-		DatabaseHost:       getEnv("DB_HOST", "localhost"),
-		DatabaseUser:       getEnv("DB_USER", "postgres"),
-		DatabasePassword:   getEnv("DB_PASSWORD", "postgres123"),
-		DatabaseName:       getEnv("DB_NAME", "wms_db"),
-		DatabasePort:       getEnv("DB_PORT", "5432"),
+		DatabaseHost:       getEnvRequired("DB_HOST"),
+		DatabaseUser:       getEnvRequired("DB_USER"),
+		DatabasePassword:   getEnvRequired("DB_PASSWORD"),
+		DatabaseName:       getEnvRequired("DB_NAME"),
+		DatabasePort:       getEnvRequired("DB_PORT"),
 		MarketplaceBaseURL: getEnvRequired("MARKETPLACE_BASE_URL"),
 		PartnerID:          getEnvRequired("PARTNER_ID"),
 		PartnerKey:         getEnvRequired("PARTNER_KEY"),
