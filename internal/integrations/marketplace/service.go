@@ -41,6 +41,7 @@ const (
 	webhookRetryPollEvery   = 5 * time.Second
 	webhookRetryMaxAttempts = 5
 	webhookRetryZSetKey     = "marketplace:webhook:retry:zset"
+	webhookInflightLockTTL  = 30 * time.Second
 )
 
 type webhookRetryJob struct {
@@ -265,6 +266,15 @@ func (s *service) sendWebhookWithIdempotency(kind, orderSN, status string) error
 		return nil
 	}
 
+	lockAcquired, err := s.acquireWebhookInflightLock(kind, orderSN, status)
+	if err != nil {
+		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to acquire webhook inflight lock")
+	}
+	if !lockAcquired {
+		return nil
+	}
+	defer s.releaseWebhookInflightLock(kind, orderSN, status)
+
 	if err := s.dispatchWebhook(kind, orderSN, status); err != nil {
 		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to dispatch webhook, queued for retry")
 		s.enqueueWebhookRetry(webhookRetryJob{
@@ -307,6 +317,15 @@ func (s *service) webhookSentKey(kind, orderSN, status string) string {
 	)
 }
 
+func (s *service) webhookInflightKey(kind, orderSN, status string) string {
+	return fmt.Sprintf(
+		"marketplace:webhook:inflight:%s:%s:%s",
+		strings.ToLower(strings.TrimSpace(kind)),
+		strings.ToLower(strings.TrimSpace(orderSN)),
+		strings.ToLower(strings.TrimSpace(status)),
+	)
+}
+
 func (s *service) wasWebhookAlreadySent(kind, orderSN, status string) (bool, error) {
 	if redis.Client == nil {
 		return false, nil
@@ -326,6 +345,22 @@ func (s *service) markWebhookSent(kind, orderSN, status string) error {
 	}
 
 	return redis.Client.Set(redis.Ctx, s.webhookSentKey(kind, orderSN, status), "1", webhookSentKeyTTL).Err()
+}
+
+func (s *service) acquireWebhookInflightLock(kind, orderSN, status string) (bool, error) {
+	if redis.Client == nil {
+		return true, nil
+	}
+
+	return redis.Client.SetNX(redis.Ctx, s.webhookInflightKey(kind, orderSN, status), "1", webhookInflightLockTTL).Result()
+}
+
+func (s *service) releaseWebhookInflightLock(kind, orderSN, status string) {
+	if redis.Client == nil {
+		return
+	}
+
+	_ = redis.Client.Del(redis.Ctx, s.webhookInflightKey(kind, orderSN, status)).Err()
 }
 
 func (s *service) retryQueuedKey(job webhookRetryJob) string {
@@ -410,7 +445,17 @@ func (s *service) processWebhookRetries() {
 			continue
 		}
 
+		lockAcquired, err := s.acquireWebhookInflightLock(job.Kind, job.OrderSN, job.Status)
+		if err != nil {
+			xlogger.Logger.Warn().Err(err).Str("kind", job.Kind).Str("order_sn", job.OrderSN).Msg("Failed to acquire retry inflight lock")
+			continue
+		}
+		if !lockAcquired {
+			continue
+		}
+
 		if err := s.dispatchWebhook(job.Kind, job.OrderSN, job.Status); err != nil {
+			s.releaseWebhookInflightLock(job.Kind, job.OrderSN, job.Status)
 			if job.Attempts >= webhookRetryMaxAttempts {
 				xlogger.Logger.Warn().Err(err).Str("kind", job.Kind).Str("order_sn", job.OrderSN).Msg("Dropping webhook retry job after max attempts")
 				s.cleanupRetryJob(job, raw)
@@ -424,6 +469,7 @@ func (s *service) processWebhookRetries() {
 		}
 
 		_ = s.markWebhookSent(job.Kind, job.OrderSN, job.Status)
+		s.releaseWebhookInflightLock(job.Kind, job.OrderSN, job.Status)
 		s.cleanupRetryJob(job, raw)
 	}
 }
