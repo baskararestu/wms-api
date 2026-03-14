@@ -17,6 +17,7 @@ type Service interface {
 	GetShopDetailByShopID(shopID string) (*ShopDetailResponse, error)
 	GetOrderListByShopID(shopID string) (*OrderListResponse, error)
 	GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailResponse, error)
+	ShipOrder(shopID, orderSN, channelID string) (*ShipExternalOrderResponse, error)
 }
 
 type service struct {
@@ -167,6 +168,25 @@ func (s *service) GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailRe
 	}
 
 	return s.client.GetOrderDetail(accessToken, orderSN)
+}
+
+func (s *service) ShipOrder(shopID, orderSN, channelID string) (*ShipExternalOrderResponse, error) {
+	cred, err := s.repo.FindMarketplaceCredentialByShopID(shopID)
+	if err != nil {
+		return nil, ErrShopNotConnected
+	}
+
+	accessToken, err := s.getValidAccessToken(cred)
+	if err != nil {
+		return nil, err
+	}
+
+	req := ShipExternalOrderRequest{
+		OrderSN:   orderSN,
+		ChannelID: channelID,
+	}
+
+	return s.client.ShipOrder(accessToken, req)
 }
 
 func (s *service) getValidAccessToken(cred *MarketplaceCredential) (string, error) {

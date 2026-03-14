@@ -27,6 +27,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	protected.Get("/:order_sn", h.GetOrderDetail)
 	protected.Post("/:order_sn/pick", h.PickOrder)
 	protected.Post("/:order_sn/pack", h.PackOrder)
+	protected.Post("/:order_sn/ship", validation.New[ShipOrderRequest](), h.ShipOrder)
 	protected.Patch("/:id/wms-status", validation.New[UpdateWMSStatusRequest](), h.UpdateWMSStatus)
 	protected.Post("/sync", validation.New[SyncOrdersRequest](), h.SyncOrders)
 }
@@ -152,6 +153,33 @@ func (h *Handler) PackOrder(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
 		Code:    fiber.StatusOK,
 		Message: "Order packed successfully",
+	})
+}
+
+func (h *Handler) ShipOrder(c *fiber.Ctx) error {
+	orderSN := c.Params("order_sn")
+	if orderSN == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Order SN is required",
+		})
+	}
+
+	req := c.Locals("payload").(*ShipOrderRequest)
+
+	res, err := h.service.ShipOrder(orderSN, req.ChannelID)
+	if err != nil {
+		xlogger.Logger.Warn().Str("order_sn", orderSN).Err(err).Msg("Failed to ship order")
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
+		Code:    fiber.StatusOK,
+		Message: "Order shipped successfully",
+		Data:    res,
 	})
 }
 

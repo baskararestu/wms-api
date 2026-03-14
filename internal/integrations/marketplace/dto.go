@@ -89,3 +89,19 @@ type OrderDetailResponse struct {
 	Message string   `json:"message"`
 	Data    OrderDTO `json:"data"`
 }
+
+// ShipExternalOrderRequest represents payload for external logistic/ship API
+type ShipExternalOrderRequest struct {
+	OrderSN   string `json:"order_sn"`
+	ChannelID string `json:"channel_id"`
+}
+
+// ShipExternalOrderResponse represents the response from external logistic/ship
+type ShipExternalOrderResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		OrderSN        string `json:"order_sn"`
+		ShippingStatus string `json:"shipping_status"`
+		TrackingNo     string `json:"tracking_no"`
+	} `json:"data"`
+}

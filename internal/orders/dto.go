@@ -86,3 +86,17 @@ type WebhookPayload struct {
 		TrackingNumber    string `json:"tracking_number"`
 	} `json:"data"`
 }
+
+// ShipOrderRequest represents the payload for POST /orders/:order_sn/ship
+type ShipOrderRequest struct {
+	ChannelID string `json:"channel_id" validate:"required"`
+}
+
+// ShipOrderResponse represents the returned format when a ship operation succeeds
+type ShipOrderResponse struct {
+	OrderSN         string `json:"order_sn"`
+	WMSStatus       string `json:"wms_status"`
+	ShippingStatus  string `json:"shipping_status"`
+	TrackingNumber  string `json:"tracking_number"`
+	ShippingChannel string `json:"shipping_channel"`
+}

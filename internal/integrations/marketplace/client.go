@@ -32,6 +32,7 @@ type Client interface {
 	GetShopDetail(accessToken string) (*ShopDetailResponse, error)
 	GetOrderList(accessToken string) (*OrderListResponse, error)
 	GetOrderDetail(accessToken, orderSN string) (*OrderDetailResponse, error)
+	ShipOrder(accessToken string, req ShipExternalOrderRequest) (*ShipExternalOrderResponse, error)
 }
 
 type AuthorizeContext struct {
@@ -384,6 +385,59 @@ func (c *client) GetOrderDetail(accessToken, orderSN string) (*OrderDetailRespon
 		}
 
 		return &detailResp, nil
+	}
+
+	return nil, lastErr
+}
+
+func (c *client) ShipOrder(accessToken string, req ShipExternalOrderRequest) (*ShipExternalOrderResponse, error) {
+	url := fmt.Sprintf("%s/logistic/ship", c.baseURL)
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq.Header.Add("Accept", "application/json")
+	httpReq.Header.Add("Content-Type", "application/json")
+	httpReq.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryCount; attempt++ {
+		resp, err := c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			httpErr := buildHTTPError("ship order", httpReq, resp)
+			resp.Body.Close()
+			lastErr = httpErr
+			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, httpErr
+		}
+
+		var shipResp ShipExternalOrderResponse
+		err = json.NewDecoder(resp.Body).Decode(&shipResp)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		return &shipResp, nil
 	}
 
 	return nil, lastErr

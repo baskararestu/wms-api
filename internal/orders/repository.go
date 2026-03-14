@@ -17,6 +17,7 @@ type Repository interface {
 	UpdateWMSStatus(id uuid.UUID, newStatus string) error
 	UpdateWMSStatusBySN(orderSN, newStatus string) error
 	UpdateMarketplaceStatus(orderSN, mpStatus, shipStatus, tracking string) error
+	UpdateShipmentInfo(orderSN, trackingNum, shippingStatus, shippingChannel, wmsStatus string) error
 }
 
 type repository struct {
@@ -143,6 +144,16 @@ func (r *repository) UpdateMarketplaceStatus(orderSN, mpStatus, shipStatus, trac
 	}
 	if tracking != "" {
 		updates["tracking_number"] = tracking
+	}
+	return r.db.Model(&Order{}).Where("order_sn = ?", orderSN).Updates(updates).Error
+}
+
+func (r *repository) UpdateShipmentInfo(orderSN, trackingNum, shippingStatus, shippingChannel, wmsStatus string) error {
+	updates := map[string]interface{}{
+		"tracking_number":  trackingNum,
+		"shipping_status":  shippingStatus,
+		"shipping_channel": shippingChannel,
+		"wms_status":       wmsStatus,
 	}
 	return r.db.Model(&Order{}).Where("order_sn = ?", orderSN).Updates(updates).Error
 }

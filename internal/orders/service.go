@@ -19,6 +19,7 @@ type Service interface {
 	UpdateWMSStatus(id uuid.UUID, newStatus string) error
 	PickOrder(orderSN string) error
 	PackOrder(orderSN string) error
+	ShipOrder(orderSN, channelID string) (*ShipOrderResponse, error)
 	SyncMarketplaceOrders(shopID string) error
 	ProcessWebhook(payload WebhookPayload) error
 }
@@ -196,6 +197,44 @@ func (s *service) PackOrder(orderSN string) error {
 
 	s.invalidateOrdersCache()
 	return nil
+}
+
+func (s *service) ShipOrder(orderSN, channelID string) (*ShipOrderResponse, error) {
+	order, err := s.repo.FindOrderBySN(orderSN)
+	if err != nil {
+		return nil, errors.New("order not found")
+	}
+
+	if order.WMSStatus != WMSStatusPacked {
+		return nil, fmt.Errorf("order cannot be shipped, current status: %s", order.WMSStatus)
+	}
+
+	// Call the external marketplace API to ship (generate tracking NO)
+	resp, err := s.mpSvc.ShipOrder(order.ShopID, orderSN, channelID)
+	if err != nil {
+		xlogger.Logger.Error().Err(err).Str("order_sn", orderSN).Str("channel_id", channelID).Msg("Failed to call marketplace ship order API")
+		return nil, fmt.Errorf("failed to sync with marketplace: %v", err)
+	}
+
+	trackingNo := resp.Data.TrackingNo
+	shippingStatus := resp.Data.ShippingStatus
+	wmsStatus := WMSStatusShipped
+
+	err = s.repo.UpdateShipmentInfo(orderSN, trackingNo, shippingStatus, channelID, wmsStatus)
+	if err != nil {
+		xlogger.Logger.Error().Err(err).Str("order_sn", orderSN).Msg("Failed to update shipment info in DB")
+		return nil, errors.New("failed to save shipment info locally")
+	}
+
+	s.invalidateOrdersCache()
+
+	return &ShipOrderResponse{
+		OrderSN:         orderSN,
+		WMSStatus:       wmsStatus,
+		ShippingStatus:  shippingStatus,
+		TrackingNumber:  trackingNo,
+		ShippingChannel: channelID,
+	}, nil
 }
 
 func (s *service) SyncMarketplaceOrders(shopID string) error {

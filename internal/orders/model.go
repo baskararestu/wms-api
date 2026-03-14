@@ -30,6 +30,7 @@ type Order struct {
 	ShopID            string      `gorm:"type:varchar(100);index;not null" json:"shop_id"`
 	MarketplaceStatus string      `gorm:"type:varchar(50);not null" json:"marketplace_status"`
 	ShippingStatus    string      `gorm:"type:varchar(50);not null" json:"shipping_status"`
+	ShippingChannel   string      `gorm:"type:varchar(50)" json:"shipping_channel"`
 	WMSStatus         string      `gorm:"type:varchar(50);index;not null;default:'READY_TO_PICK'" json:"wms_status"`
 	TrackingNumber    string      `gorm:"type:varchar(100)" json:"tracking_number"`
 	TotalAmount       float64     `gorm:"type:numeric(12,2);not null;default:0" json:"total_amount"`
