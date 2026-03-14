@@ -20,6 +20,9 @@ type Config struct {
 	MarketplaceBaseURL   string
 	PartnerID            string
 	PartnerKey           string
+	RedisHost            string
+	RedisPort            string
+	RedisPassword        string
 	IsDevelopment        bool
 }
 
@@ -40,10 +43,12 @@ func LoadConfig() error {
 		DatabaseUser:       getEnvRequired("DB_USER"),
 		DatabasePassword:   getEnvRequired("DB_PASSWORD"),
 		DatabaseName:       getEnvRequired("DB_NAME"),
-		DatabasePort:       getEnvRequired("DB_PORT"),
 		MarketplaceBaseURL: getEnvRequired("MARKETPLACE_BASE_URL"),
 		PartnerID:          getEnvRequired("PARTNER_ID"),
 		PartnerKey:         getEnvRequired("PARTNER_KEY"),
+		RedisHost:          getEnv("REDIS_HOST", "localhost"),
+		RedisPort:          getEnv("REDIS_PORT", "6379"),
+		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
 	}
 
 	App.IsDevelopment = App.AppEnv != "production"

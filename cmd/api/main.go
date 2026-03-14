@@ -5,16 +5,18 @@ import (
 	"github.com/baskararestu/wms-api/internal/config"
 	"github.com/baskararestu/wms-api/internal/database"
 	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
+	"github.com/baskararestu/wms-api/internal/redis"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 func main() {
-	// Initialize Config and DB
+	// Initialize Config, DB, and Redis
 	config.LoadConfig()
 	xlogger.Setup(config.App)
 	database.ConnectDB()
+	redis.ConnectRedis()
 
 	app := fiber.New(fiber.Config{
 		AppName: "WMS API",
