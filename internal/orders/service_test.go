@@ -25,8 +25,8 @@ func (m *mockOrderRepo) FindOrderBySN(orderSN string) (*Order, error) {
 func (m *mockOrderRepo) UpsertOrder(order *Order) error                       { return nil }
 func (m *mockOrderRepo) UpdateWMSStatus(id uuid.UUID, newStatus string) error { return nil }
 func (m *mockOrderRepo) UpdateWMSStatusBySN(orderSN, newStatus string) error  { return nil }
-func (m *mockOrderRepo) UpdateOrderStatus(orderSN, status string) error        { return nil }
-func (m *mockOrderRepo) UpdateShippingStatus(orderSN, status string) error     { return nil }
+func (m *mockOrderRepo) UpdateOrderStatus(orderSN, status string) error       { return nil }
+func (m *mockOrderRepo) UpdateShippingStatus(orderSN, status string) error    { return nil }
 func (m *mockOrderRepo) UpdateMarketplaceStatus(orderSN, mpStatus, shipStatus, tracking string) error {
 	return nil
 }
