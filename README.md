@@ -20,11 +20,18 @@ Built with Go, Fiber, GORM, and PostgreSQL.
 ├── internal/
 │   ├── config/               # Environment Variables & Setup
 │   ├── database/             # GORM PostgreSQL Connection
-│   ├── handlers/             # HTTP Fiber Controllers
-│   ├── services/             # Core Business Logic & State Machines
-│   ├── repositories/         # Database Interactions
-│   ├── models/               # Entities and DTOs
-│   └── integrations/         # External API Clients (OAuth, Webhooks)
+│   ├── app/                  # Application Wiring & Interface stitching
+│   ├── auth/                 # Domain: Authentication & Credentials
+│   │   ├── handler.go
+│   │   ├── service.go
+│   │   ├── repository.go
+│   │   └── model.go
+│   ├── orders/               # Domain: Orders Processing
+│   │   ├── handler.go
+│   │   ├── service.go
+│   │   ├── repository.go
+│   │   └── model.go
+│   └── integrations/         # Domain: 3rd Party API Clients (Webhooks, OAuth)
 ├── tests/
 │   ├── unit/                 # Mocked fast tests
 │   └── integration/          # Live DB tests

@@ -3,12 +3,19 @@ package main
 import (
 	"log"
 
+	appInit "github.com/baskararestu/wms-api/internal/app"
+	"github.com/baskararestu/wms-api/internal/config"
+	"github.com/baskararestu/wms-api/internal/database"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 func main() {
+	// Initialize Config and DB
+	config.LoadConfig()
+	database.ConnectDB()
+
 	app := fiber.New(fiber.Config{
 		AppName: "WMS API",
 	})
@@ -24,6 +31,9 @@ func main() {
 			"message": "WMS API is alive",
 		})
 	})
+
+	// Wire and Run Domain modules
+	appInit.Run(app, database.DB)
 
 	log.Fatal(app.Listen(":3000"))
 }
