@@ -22,6 +22,7 @@ type GetOrderListQuery struct {
 	MarketplaceStatus string `query:"marketplace_status"`
 	ShippingStatus    string `query:"shipping_status"`
 	ShopID            string `query:"shop_id"`
+	Since             string `query:"since"`
 }
 
 // OrderListResponse represents the response payload for GET /orders

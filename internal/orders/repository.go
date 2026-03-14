@@ -48,6 +48,13 @@ func (r *repository) FindOrders(query GetOrderListQuery) ([]Order, int64, error)
 	if query.ShopID != "" {
 		dbQuery = dbQuery.Where("shop_id = ?", query.ShopID)
 	}
+	if query.Since != "" {
+		sinceTime, err := time.Parse(time.RFC3339, query.Since)
+		if err != nil {
+			return nil, 0, err
+		}
+		dbQuery = dbQuery.Where("updated_at > ?", sinceTime)
+	}
 	if query.Search != "" {
 		searchTerm := "%" + query.Search + "%"
 		dbQuery = dbQuery.Where("order_sn ILIKE ? OR tracking_number ILIKE ?", searchTerm, searchTerm)

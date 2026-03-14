@@ -1,6 +1,8 @@
 package orders
 
 import (
+	"errors"
+
 	"github.com/baskararestu/wms-api/internal/pkg/middleware"
 	"github.com/baskararestu/wms-api/internal/pkg/response"
 	"github.com/baskararestu/wms-api/internal/pkg/validation"
@@ -45,6 +47,13 @@ func (h *Handler) GetOrders(c *fiber.Ctx) error {
 
 	res, err := h.service.GetOrders(query)
 	if err != nil {
+		if errors.Is(err, ErrInvalidSince) {
+			return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+				Code:    fiber.StatusBadRequest,
+				Message: err.Error(),
+			})
+		}
+
 		xlogger.Logger.Warn().Err(err).Msg("Failed to list orders")
 		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse{
 			Code:    fiber.StatusInternalServerError,

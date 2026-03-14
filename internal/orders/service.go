@@ -32,11 +32,19 @@ type service struct {
 	mpSvc marketplace.Service
 }
 
+var ErrInvalidSince = errors.New("invalid since format, use RFC3339")
+
 func NewService(repo Repository, mpSvc marketplace.Service) Service {
 	return &service{repo: repo, mpSvc: mpSvc}
 }
 
 func (s *service) GetOrders(query GetOrderListQuery) (*OrderListResponse, error) {
+	if query.Since != "" {
+		if _, err := time.Parse(time.RFC3339, query.Since); err != nil {
+			return nil, ErrInvalidSince
+		}
+	}
+
 	// Try getting from cache first
 	cacheKey := s.generateCacheKey(query)
 	if redis.Client != nil {
