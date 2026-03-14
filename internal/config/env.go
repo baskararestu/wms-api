@@ -10,6 +10,7 @@ import (
 // AppConfig holds all strongly-typed environment variables
 type Config struct {
 	AppEnv               string
+	Port                 string
 	JWTSecret            string
 	DatabaseHost         string
 	DatabaseUser         string
@@ -33,6 +34,7 @@ func LoadConfig() error {
 
 	App = Config{
 		AppEnv:             getEnv("APP_ENV", "development"),
+		Port:               getEnv("PORT", "3000"),
 		JWTSecret:          getEnv("JWT_SECRET", "supersecretkey"),
 		DatabaseHost:       getEnvRequired("DB_HOST"),
 		DatabaseUser:       getEnvRequired("DB_USER"),
