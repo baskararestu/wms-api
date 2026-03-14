@@ -9,8 +9,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env.production
-    volumes:
-      - ./.env.production:/app/.env:ro
     ports:
       - "3000:3000"
     depends_on:
@@ -20,8 +18,8 @@ services:
         condition: service_healthy
     networks:
       - wms_net
-    mem_limit: 450m
-    cpus: "0.70"
+    mem_limit: 768m
+    cpus: "1.00"
     logging:
       driver: json-file
       options:
@@ -46,8 +44,8 @@ services:
       start_period: 20s
     networks:
       - wms_net
-    mem_limit: 700m
-    cpus: "0.80"
+    mem_limit: 1536m
+    cpus: "1.00"
     logging:
       driver: json-file
       options:
@@ -58,7 +56,7 @@ services:
     image: redis:7-alpine
     container_name: wms_redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "192mb", "--maxmemory-policy", "allkeys-lru"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "320mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis_data:/data
     healthcheck:
@@ -69,8 +67,8 @@ services:
       start_period: 10s
     networks:
       - wms_net
-    mem_limit: 256m
-    cpus: "0.25"
+    mem_limit: 384m
+    cpus: "0.30"
     logging:
       driver: json-file
       options:
