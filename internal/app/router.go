@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/baskararestu/wms-api/internal/auth"
+	"github.com/baskararestu/wms-api/internal/integrations/marketplace"
 	"github.com/baskararestu/wms-api/internal/orders"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -24,18 +25,20 @@ func Run(app *fiber.App, db *gorm.DB) {
 	// assuming auth.Service satisfies the orders.AuthProvider interface.
 	ordersService := orders.NewService(ordersRepo) // Using ordersRepo inside orders service
 
+	// --- Integrations / Marketplace Domain ---
+	marketplaceClient := marketplace.NewClient()
+	marketplaceService := marketplace.NewService(marketplaceClient, authRepo)
+	marketplaceHandler := marketplace.NewHandler(marketplaceService)
+
 	// 3. Initialize Handlers
 	authHandler := auth.NewHandler(authService)
 	ordersHandler := orders.NewHandler(ordersService)
 
-	// 4. Setup Routing Groups
+	// 4. Register Routes
 	api := app.Group("/api/v1")
-	
-	authRoutes := api.Group("/auth")
-	authHandler.RegisterRoutes(authRoutes)
-
-	orderRoutes := api.Group("/orders")
-	ordersHandler.RegisterRoutes(orderRoutes)
+	authHandler.RegisterRoutes(api.Group("/auth"))
+	ordersHandler.RegisterRoutes(api.Group("/orders"))
+	marketplaceHandler.RegisterRoutes(api.Group("/integrations/marketplace"))
 
 	log.Println("✅ Domain Modules Loaded and Routes Registered")
 }

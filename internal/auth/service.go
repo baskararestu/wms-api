@@ -68,7 +68,7 @@ func (s *service) Login(req LoginRequest) (*LoginResponse, error) {
 
 // GenerateToken creates a JWT for a given user
 func (s *service) GenerateToken(user *User) (string, error) {
-	secret := config.GetEnv("JWT_SECRET", "supersecretkey") // fallback for local dev
+	secret := config.App.JWTSecret
 	
 	claims := jwt.MapClaims{
 		"user_id":  user.ID.String(),
