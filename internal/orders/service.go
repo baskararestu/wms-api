@@ -209,7 +209,6 @@ func (s *service) SyncMarketplaceOrders(shopID string) error {
 	}
 
 	for _, mpOrder := range r.Data {
-		var totalAmt float64
 		var items []OrderItem
 
 		id := uuid.New()
@@ -222,7 +221,6 @@ func (s *service) SyncMarketplaceOrders(shopID string) error {
 				Quantity: mpItem.Quantity,
 				Price:    mpItem.Price,
 			})
-			totalAmt += (mpItem.Price * float64(mpItem.Quantity))
 		}
 
 		// Parse created_at
@@ -247,7 +245,7 @@ func (s *service) SyncMarketplaceOrders(shopID string) error {
 			ShippingStatus:    mpOrder.ShippingStatus,
 			WMSStatus:         wmsStatus,
 			TrackingNumber:    mpOrder.TrackingNumber,
-			TotalAmount:       totalAmt,
+			TotalAmount:       mpOrder.TotalAmount,
 		}
 
 		// Insert or Update the order. We rely on the raw Upsert we built.
@@ -258,7 +256,7 @@ func (s *service) SyncMarketplaceOrders(shopID string) error {
 			existing.MarketplaceStatus = mpOrder.Status
 			existing.ShippingStatus = mpOrder.ShippingStatus
 			existing.TrackingNumber = mpOrder.TrackingNumber
-			existing.TotalAmount = totalAmt
+			existing.TotalAmount = mpOrder.TotalAmount
 			existing.Items = items
 			existing.UpdatedAt = time.Now()
 
