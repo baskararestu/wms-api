@@ -17,10 +17,10 @@ type BaseModel struct {
 
 // Order status constants
 const (
-	WMSStatusReadyToPickup = "Ready to Pickup"
-	WMSStatusPicking       = "Picking"
-	WMSStatusPacked        = "Packed"
-	WMSStatusShipped       = "Shipped"
+	WMSStatusReadyToPickup = "READY_TO_PICK"
+	WMSStatusPicking       = "PICKING"
+	WMSStatusPacked        = "PACKED"
+	WMSStatusShipped       = "SHIPPED"
 )
 
 // Order represents a customer order from a marketplace synced into the WMS
@@ -30,7 +30,7 @@ type Order struct {
 	ShopID            string      `gorm:"type:varchar(100);index;not null" json:"shop_id"`
 	MarketplaceStatus string      `gorm:"type:varchar(50);not null" json:"marketplace_status"`
 	ShippingStatus    string      `gorm:"type:varchar(50);not null" json:"shipping_status"`
-	WMSStatus         string      `gorm:"type:varchar(50);index;not null;default:'Ready to Pickup'" json:"wms_status"`
+	WMSStatus         string      `gorm:"type:varchar(50);index;not null;default:'READY_TO_PICK'" json:"wms_status"`
 	TrackingNumber    string      `gorm:"type:varchar(100)" json:"tracking_number"`
 	TotalAmount       float64     `gorm:"type:numeric(12,2);not null;default:0" json:"total_amount"`
 	Items             []OrderItem `gorm:"foreignKey:OrderID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"items"`

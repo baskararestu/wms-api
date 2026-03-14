@@ -15,6 +15,7 @@ type Repository interface {
 	FindOrderBySN(orderSN string) (*Order, error)
 	UpsertOrder(order *Order) error
 	UpdateWMSStatus(id uuid.UUID, newStatus string) error
+	UpdateWMSStatusBySN(orderSN, newStatus string) error
 	UpdateMarketplaceStatus(orderSN, mpStatus, shipStatus, tracking string) error
 }
 
@@ -129,6 +130,10 @@ func (r *repository) UpsertOrder(order *Order) error {
 
 func (r *repository) UpdateWMSStatus(id uuid.UUID, newStatus string) error {
 	return r.db.Model(&Order{}).Where("id = ?", id).Update("wms_status", newStatus).Error
+}
+
+func (r *repository) UpdateWMSStatusBySN(orderSN, newStatus string) error {
+	return r.db.Model(&Order{}).Where("order_sn = ?", orderSN).Update("wms_status", newStatus).Error
 }
 
 func (r *repository) UpdateMarketplaceStatus(orderSN, mpStatus, shipStatus, tracking string) error {

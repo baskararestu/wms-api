@@ -19,6 +19,8 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Get("/", h.GetOrders)
 	router.Get("/:order_sn", h.GetOrderDetail)
+	router.Post("/:order_sn/pick", h.PickOrder)
+	router.Post("/:order_sn/pack", h.PackOrder)
 	router.Patch("/:id/wms-status", validation.New[UpdateWMSStatusRequest](), h.UpdateWMSStatus)
 	router.Post("/sync", validation.New[SyncOrdersRequest](), h.SyncOrders)
 	router.Post("/webhook", validation.New[WebhookPayload](), h.HandleMarketplaceWebhook)
@@ -97,6 +99,54 @@ func (h *Handler) UpdateWMSStatus(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
 		Code:    fiber.StatusOK,
 		Message: "WMS status updated successfully",
+	})
+}
+
+func (h *Handler) PickOrder(c *fiber.Ctx) error {
+	orderSN := c.Params("order_sn")
+	if orderSN == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Order SN is required",
+		})
+	}
+
+	err := h.service.PickOrder(orderSN)
+	if err != nil {
+		xlogger.Logger.Warn().Str("order_sn", orderSN).Err(err).Msg("Failed to pick order")
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
+		Code:    fiber.StatusOK,
+		Message: "Order picked successfully",
+	})
+}
+
+func (h *Handler) PackOrder(c *fiber.Ctx) error {
+	orderSN := c.Params("order_sn")
+	if orderSN == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Order SN is required",
+		})
+	}
+
+	err := h.service.PackOrder(orderSN)
+	if err != nil {
+		xlogger.Logger.Warn().Str("order_sn", orderSN).Err(err).Msg("Failed to pack order")
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
+		Code:    fiber.StatusOK,
+		Message: "Order packed successfully",
 	})
 }
 

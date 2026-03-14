@@ -17,6 +17,8 @@ type Service interface {
 	GetOrders(query GetOrderListQuery) (*OrderListResponse, error)
 	GetOrderDetail(orderSN string) (*OrderDetailResponse, error)
 	UpdateWMSStatus(id uuid.UUID, newStatus string) error
+	PickOrder(orderSN string) error
+	PackOrder(orderSN string) error
 	SyncMarketplaceOrders(shopID string) error
 	ProcessWebhook(payload WebhookPayload) error
 }
@@ -148,8 +150,46 @@ func (s *service) UpdateWMSStatus(id uuid.UUID, newStatus string) error {
 		return nil // skip identical updates
 	}
 
-	// A rigorous validation could check if order.WMSStatus == "Ready to Pickup" transitioning to "Picking" only etc.
+	// A rigorous validation could check if order.WMSStatus == "READY_TO_PICK" transitioning to "PICKING" only etc.
 	err = s.repo.UpdateWMSStatus(id, newStatus)
+	if err != nil {
+		return err
+	}
+
+	s.invalidateOrdersCache()
+	return nil
+}
+
+func (s *service) PickOrder(orderSN string) error {
+	order, err := s.repo.FindOrderBySN(orderSN)
+	if err != nil {
+		return errors.New("order not found")
+	}
+
+	if order.WMSStatus != WMSStatusReadyToPickup {
+		return fmt.Errorf("order cannot be picked, current status: %s", order.WMSStatus)
+	}
+
+	err = s.repo.UpdateWMSStatusBySN(orderSN, WMSStatusPicking)
+	if err != nil {
+		return err
+	}
+
+	s.invalidateOrdersCache()
+	return nil
+}
+
+func (s *service) PackOrder(orderSN string) error {
+	order, err := s.repo.FindOrderBySN(orderSN)
+	if err != nil {
+		return errors.New("order not found")
+	}
+
+	if order.WMSStatus != WMSStatusPicking {
+		return fmt.Errorf("order cannot be packed, current status: %s", order.WMSStatus)
+	}
+
+	err = s.repo.UpdateWMSStatusBySN(orderSN, WMSStatusPacked)
 	if err != nil {
 		return err
 	}
