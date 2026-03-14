@@ -25,6 +25,7 @@ func Run(app *fiber.App, db *gorm.DB) {
 	// --- Integrations / Marketplace Domain ---
 	marketplaceClient := marketplace.NewClient()
 	marketplaceService := marketplace.NewService(marketplaceClient, marketplaceRepo, config.App.RedirectURL)
+	marketplace.StartWebhookRetryScheduler(marketplaceService)
 
 	// Orders domain uses marketplace service for Sync functionality
 	ordersService := orders.NewService(ordersRepo, marketplaceService)

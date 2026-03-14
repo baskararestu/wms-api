@@ -3,6 +3,7 @@ package marketplace
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -34,6 +35,20 @@ var (
 	ErrMarketplaceUnavailable = errors.New("marketplace service temporarily unavailable, please retry")
 	ErrShopNotConnected       = errors.New("shop is not connected")
 )
+
+const (
+	webhookSentKeyTTL       = 24 * time.Hour
+	webhookRetryPollEvery   = 5 * time.Second
+	webhookRetryMaxAttempts = 5
+	webhookRetryZSetKey     = "marketplace:webhook:retry:zset"
+)
+
+type webhookRetryJob struct {
+	Kind     string `json:"kind"`
+	OrderSN  string `json:"order_sn"`
+	Status   string `json:"status"`
+	Attempts int    `json:"attempts"`
+}
 
 // NewService creates a new Marketplace Integration Service
 func NewService(client Client, repo Repository, redirectURL string) Service {
@@ -233,15 +248,193 @@ func (s *service) GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsR
 }
 
 func (s *service) NotifyOrderStatus(orderSN, status string) error {
-	req := WebhookStatusNotifyRequest{OrderSN: orderSN, Status: status}
-	_, err := s.client.NotifyOrderStatus(req)
-	return err
+	return s.sendWebhookWithIdempotency("order-status", orderSN, status)
 }
 
 func (s *service) NotifyShippingStatus(orderSN, status string) error {
+	return s.sendWebhookWithIdempotency("shipping-status", orderSN, status)
+}
+
+func (s *service) sendWebhookWithIdempotency(kind, orderSN, status string) error {
+	alreadySent, err := s.wasWebhookAlreadySent(kind, orderSN, status)
+	if err != nil {
+		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to check webhook sent key")
+	}
+
+	if alreadySent {
+		return nil
+	}
+
+	if err := s.dispatchWebhook(kind, orderSN, status); err != nil {
+		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to dispatch webhook, queued for retry")
+		s.enqueueWebhookRetry(webhookRetryJob{
+			Kind:     kind,
+			OrderSN:  orderSN,
+			Status:   status,
+			Attempts: 1,
+		}, 5*time.Second)
+		return err
+	}
+
+	if err := s.markWebhookSent(kind, orderSN, status); err != nil {
+		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to store webhook sent key")
+	}
+
+	return nil
+}
+
+func (s *service) dispatchWebhook(kind, orderSN, status string) error {
 	req := WebhookStatusNotifyRequest{OrderSN: orderSN, Status: status}
-	_, err := s.client.NotifyShippingStatus(req)
-	return err
+
+	switch kind {
+	case "order-status":
+		_, err := s.client.NotifyOrderStatus(req)
+		return err
+	case "shipping-status":
+		_, err := s.client.NotifyShippingStatus(req)
+		return err
+	default:
+		return fmt.Errorf("unsupported webhook kind: %s", kind)
+	}
+}
+
+func (s *service) webhookSentKey(kind, orderSN, status string) string {
+	return fmt.Sprintf(
+		"marketplace:webhook:sent:%s:%s:%s",
+		strings.ToLower(strings.TrimSpace(kind)),
+		strings.ToLower(strings.TrimSpace(orderSN)),
+		strings.ToLower(strings.TrimSpace(status)),
+	)
+}
+
+func (s *service) wasWebhookAlreadySent(kind, orderSN, status string) (bool, error) {
+	if redis.Client == nil {
+		return false, nil
+	}
+
+	exists, err := redis.Client.Exists(redis.Ctx, s.webhookSentKey(kind, orderSN, status)).Result()
+	if err != nil {
+		return false, err
+	}
+
+	return exists > 0, nil
+}
+
+func (s *service) markWebhookSent(kind, orderSN, status string) error {
+	if redis.Client == nil {
+		return nil
+	}
+
+	return redis.Client.Set(redis.Ctx, s.webhookSentKey(kind, orderSN, status), "1", webhookSentKeyTTL).Err()
+}
+
+func (s *service) retryQueuedKey(job webhookRetryJob) string {
+	return fmt.Sprintf(
+		"marketplace:webhook:retry:queued:%s:%s:%s",
+		strings.ToLower(strings.TrimSpace(job.Kind)),
+		strings.ToLower(strings.TrimSpace(job.OrderSN)),
+		strings.ToLower(strings.TrimSpace(job.Status)),
+	)
+}
+
+func (s *service) enqueueWebhookRetry(job webhookRetryJob, delay time.Duration) {
+	if redis.Client == nil {
+		return
+	}
+
+	key := s.retryQueuedKey(job)
+	created, err := redis.Client.SetNX(redis.Ctx, key, "1", 30*time.Minute).Result()
+	if err != nil {
+		xlogger.Logger.Warn().Err(err).Str("order_sn", job.OrderSN).Msg("Failed to set retry queued key")
+		return
+	}
+	if !created {
+		return
+	}
+
+	jobBytes, err := json.Marshal(job)
+	if err != nil {
+		return
+	}
+
+	nextAt := float64(time.Now().Add(delay).Unix())
+	if err := redis.Client.ZAdd(redis.Ctx, webhookRetryZSetKey, goredis.Z{Score: nextAt, Member: string(jobBytes)}).Err(); err != nil {
+		_ = redis.Client.Del(redis.Ctx, key).Err()
+		xlogger.Logger.Warn().Err(err).Str("order_sn", job.OrderSN).Msg("Failed to enqueue webhook retry")
+	}
+}
+
+func StartWebhookRetryScheduler(svc Service) {
+	s, ok := svc.(*service)
+	if !ok {
+		return
+	}
+
+	go func() {
+		ticker := time.NewTicker(webhookRetryPollEvery)
+		defer ticker.Stop()
+
+		xlogger.Logger.Info().Msg("Marketplace webhook retry scheduler started")
+		for range ticker.C {
+			s.processWebhookRetries()
+		}
+	}()
+}
+
+func (s *service) processWebhookRetries() {
+	if redis.Client == nil {
+		return
+	}
+
+	now := fmt.Sprintf("%d", time.Now().Unix())
+	jobs, err := redis.Client.ZRangeByScore(redis.Ctx, webhookRetryZSetKey, &goredis.ZRangeBy{
+		Min:   "-inf",
+		Max:   now,
+		Count: 20,
+	}).Result()
+	if err != nil {
+		xlogger.Logger.Warn().Err(err).Msg("Failed to fetch webhook retry jobs")
+		return
+	}
+
+	for _, raw := range jobs {
+		var job webhookRetryJob
+		if err := json.Unmarshal([]byte(raw), &job); err != nil {
+			_ = redis.Client.ZRem(redis.Ctx, webhookRetryZSetKey, raw).Err()
+			continue
+		}
+
+		alreadySent, _ := s.wasWebhookAlreadySent(job.Kind, job.OrderSN, job.Status)
+		if alreadySent {
+			s.cleanupRetryJob(job, raw)
+			continue
+		}
+
+		if err := s.dispatchWebhook(job.Kind, job.OrderSN, job.Status); err != nil {
+			if job.Attempts >= webhookRetryMaxAttempts {
+				xlogger.Logger.Warn().Err(err).Str("kind", job.Kind).Str("order_sn", job.OrderSN).Msg("Dropping webhook retry job after max attempts")
+				s.cleanupRetryJob(job, raw)
+				continue
+			}
+
+			job.Attempts++
+			s.cleanupRetryJob(job, raw)
+			s.enqueueWebhookRetry(job, time.Duration(job.Attempts)*5*time.Second)
+			continue
+		}
+
+		_ = s.markWebhookSent(job.Kind, job.OrderSN, job.Status)
+		s.cleanupRetryJob(job, raw)
+	}
+}
+
+func (s *service) cleanupRetryJob(job webhookRetryJob, raw string) {
+	if redis.Client == nil {
+		return
+	}
+
+	_ = redis.Client.ZRem(redis.Ctx, webhookRetryZSetKey, raw).Err()
+	_ = redis.Client.Del(redis.Ctx, s.retryQueuedKey(job)).Err()
 }
 
 func (s *service) getValidAccessToken(cred *MarketplaceCredential) (string, error) {
