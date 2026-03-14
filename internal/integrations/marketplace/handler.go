@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/baskararestu/wms-api/internal/pkg/middleware"
 	"github.com/baskararestu/wms-api/internal/pkg/response"
 	"github.com/baskararestu/wms-api/internal/pkg/validation"
 	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
@@ -19,9 +20,10 @@ func NewHandler(service Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	router.Post("/shops/connect/start", validation.New[LinkShopRequest](), h.StartLinkShop)
-	router.Get("/oauth/callback", h.OAuthCallback)
-	router.Get("/shops/:shopID", h.GetShopDetail)
+	protected := router.Group("/", middleware.Protected())
+	protected.Post("/shops/connect/start", validation.New[LinkShopRequest](), h.StartLinkShop)
+	protected.Get("/oauth/callback", h.OAuthCallback)
+	protected.Get("/shops/:shopID", h.GetShopDetail)
 }
 
 func (h *Handler) StartLinkShop(c *fiber.Ctx) error {

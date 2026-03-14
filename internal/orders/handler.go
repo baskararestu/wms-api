@@ -1,6 +1,7 @@
 package orders
 
 import (
+	"github.com/baskararestu/wms-api/internal/pkg/middleware"
 	"github.com/baskararestu/wms-api/internal/pkg/response"
 	"github.com/baskararestu/wms-api/internal/pkg/validation"
 	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
@@ -17,13 +18,17 @@ func NewHandler(service Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	router.Get("/", h.GetOrders)
-	router.Get("/:order_sn", h.GetOrderDetail)
-	router.Post("/:order_sn/pick", h.PickOrder)
-	router.Post("/:order_sn/pack", h.PackOrder)
-	router.Patch("/:id/wms-status", validation.New[UpdateWMSStatusRequest](), h.UpdateWMSStatus)
-	router.Post("/sync", validation.New[SyncOrdersRequest](), h.SyncOrders)
+	// Public or external routes
 	router.Post("/webhook", validation.New[WebhookPayload](), h.HandleMarketplaceWebhook)
+
+	// Protected routes that require a valid user token
+	protected := router.Group("/", middleware.Protected())
+	protected.Get("/", h.GetOrders)
+	protected.Get("/:order_sn", h.GetOrderDetail)
+	protected.Post("/:order_sn/pick", h.PickOrder)
+	protected.Post("/:order_sn/pack", h.PackOrder)
+	protected.Patch("/:id/wms-status", validation.New[UpdateWMSStatusRequest](), h.UpdateWMSStatus)
+	protected.Post("/sync", validation.New[SyncOrdersRequest](), h.SyncOrders)
 }
 
 func (h *Handler) GetOrders(c *fiber.Ctx) error {
