@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"log"
 	"os"
 
@@ -33,7 +34,11 @@ var App Config
 // LoadConfig loads environment variables and populates the global App struct.
 func LoadConfig() error {
 	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Fatal: Error loading .env file: %v", err)
+		if errors.Is(err, os.ErrNotExist) {
+			log.Printf("Info: .env file not found, using environment variables")
+		} else {
+			log.Printf("Warning: could not load .env file: %v", err)
+		}
 	}
 
 	App = Config{
