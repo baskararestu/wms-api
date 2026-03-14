@@ -68,10 +68,6 @@ func (m *mockAuthRepository) RevokeRefreshTokenByHash(tokenHash string) error {
 	return nil
 }
 
-func (m *mockAuthRepository) UpsertMarketplaceCredential(_ *MarketplaceCredential, _ int) error {
-	return nil
-}
-
 func hashForTest(raw string) string {
 	h := sha256.Sum256([]byte(raw))
 	return fmt.Sprintf("%x", h)
