@@ -26,6 +26,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	protected.Post("/shops/connect/start", validation.New[LinkShopRequest](), h.StartLinkShop)
 	protected.Get("/shops/:shopID", h.GetShopDetail)
 	protected.Get("/shops/:shopID/logistic/channels", h.GetLogisticChannels)
+	protected.Get("/webhooks/metrics", h.GetWebhookMetrics)
 }
 
 func (h *Handler) StartLinkShop(c *fiber.Ctx) error {
@@ -149,4 +150,14 @@ func (h *Handler) GetLogisticChannels(c *fiber.Ctx) error {
 
 	// We can manually forward the literal data structure or return the nested one
 	return c.Status(fiber.StatusOK).JSON(channels)
+}
+
+func (h *Handler) GetWebhookMetrics(c *fiber.Ctx) error {
+	metrics := h.service.GetWebhookDeliveryMetrics()
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
+		Code:    fiber.StatusOK,
+		Message: "Webhook delivery metrics",
+		Data:    metrics,
+	})
 }

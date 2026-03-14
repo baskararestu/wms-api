@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
@@ -23,12 +24,22 @@ type Service interface {
 	GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsResponse, error)
 	NotifyOrderStatus(orderSN, status string) error
 	NotifyShippingStatus(orderSN, status string) error
+	GetWebhookDeliveryMetrics() WebhookDeliveryMetrics
 }
 
 type service struct {
 	client      Client
 	repo        Repository
 	redirectURL string
+
+	dispatchSuccess    atomic.Uint64
+	dispatchFailure    atomic.Uint64
+	retryQueued        atomic.Uint64
+	retrySuccess       atomic.Uint64
+	retryFailure       atomic.Uint64
+	retryDropped       atomic.Uint64
+	idempotencySkipped atomic.Uint64
+	inflightSkipped    atomic.Uint64
 }
 
 var (
@@ -263,6 +274,7 @@ func (s *service) sendWebhookWithIdempotency(kind, orderSN, status string) error
 	}
 
 	if alreadySent {
+		s.idempotencySkipped.Add(1)
 		return nil
 	}
 
@@ -271,11 +283,14 @@ func (s *service) sendWebhookWithIdempotency(kind, orderSN, status string) error
 		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to acquire webhook inflight lock")
 	}
 	if !lockAcquired {
+		s.inflightSkipped.Add(1)
 		return nil
 	}
 	defer s.releaseWebhookInflightLock(kind, orderSN, status)
 
 	if err := s.dispatchWebhook(kind, orderSN, status); err != nil {
+		s.dispatchFailure.Add(1)
+		s.retryQueued.Add(1)
 		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to dispatch webhook, queued for retry")
 		s.enqueueWebhookRetry(webhookRetryJob{
 			Kind:     kind,
@@ -285,6 +300,8 @@ func (s *service) sendWebhookWithIdempotency(kind, orderSN, status string) error
 		}, 5*time.Second)
 		return err
 	}
+
+	s.dispatchSuccess.Add(1)
 
 	if err := s.markWebhookSent(kind, orderSN, status); err != nil {
 		xlogger.Logger.Warn().Err(err).Str("kind", kind).Str("order_sn", orderSN).Msg("Failed to store webhook sent key")
@@ -441,6 +458,7 @@ func (s *service) processWebhookRetries() {
 
 		alreadySent, _ := s.wasWebhookAlreadySent(job.Kind, job.OrderSN, job.Status)
 		if alreadySent {
+			s.idempotencySkipped.Add(1)
 			s.cleanupRetryJob(job, raw)
 			continue
 		}
@@ -451,27 +469,55 @@ func (s *service) processWebhookRetries() {
 			continue
 		}
 		if !lockAcquired {
+			s.inflightSkipped.Add(1)
 			continue
 		}
 
 		if err := s.dispatchWebhook(job.Kind, job.OrderSN, job.Status); err != nil {
+			s.retryFailure.Add(1)
 			s.releaseWebhookInflightLock(job.Kind, job.OrderSN, job.Status)
 			if job.Attempts >= webhookRetryMaxAttempts {
+				s.retryDropped.Add(1)
 				xlogger.Logger.Warn().Err(err).Str("kind", job.Kind).Str("order_sn", job.OrderSN).Msg("Dropping webhook retry job after max attempts")
 				s.cleanupRetryJob(job, raw)
 				continue
 			}
 
 			job.Attempts++
+			s.retryQueued.Add(1)
 			s.cleanupRetryJob(job, raw)
 			s.enqueueWebhookRetry(job, time.Duration(job.Attempts)*5*time.Second)
 			continue
 		}
 
+		s.retrySuccess.Add(1)
 		_ = s.markWebhookSent(job.Kind, job.OrderSN, job.Status)
 		s.releaseWebhookInflightLock(job.Kind, job.OrderSN, job.Status)
 		s.cleanupRetryJob(job, raw)
 	}
+}
+
+func (s *service) GetWebhookDeliveryMetrics() WebhookDeliveryMetrics {
+	metrics := WebhookDeliveryMetrics{
+		DispatchSuccess:    s.dispatchSuccess.Load(),
+		DispatchFailure:    s.dispatchFailure.Load(),
+		RetryQueued:        s.retryQueued.Load(),
+		RetrySuccess:       s.retrySuccess.Load(),
+		RetryFailure:       s.retryFailure.Load(),
+		RetryDropped:       s.retryDropped.Load(),
+		IdempotencySkipped: s.idempotencySkipped.Load(),
+		InflightSkipped:    s.inflightSkipped.Load(),
+		PendingRetry:       0,
+	}
+
+	if redis.Client != nil {
+		pending, err := redis.Client.ZCard(redis.Ctx, webhookRetryZSetKey).Result()
+		if err == nil {
+			metrics.PendingRetry = pending
+		}
+	}
+
+	return metrics
 }
 
 func (s *service) cleanupRetryJob(job webhookRetryJob, raw string) {

@@ -139,3 +139,15 @@ type ShippingStatusNotifyResponse struct {
 		ShippingState string `json:"shipping_state"`
 	} `json:"data"`
 }
+
+type WebhookDeliveryMetrics struct {
+	DispatchSuccess   uint64 `json:"dispatch_success"`
+	DispatchFailure   uint64 `json:"dispatch_failure"`
+	RetryQueued       uint64 `json:"retry_queued"`
+	RetrySuccess      uint64 `json:"retry_success"`
+	RetryFailure      uint64 `json:"retry_failure"`
+	RetryDropped      uint64 `json:"retry_dropped"`
+	IdempotencySkipped uint64 `json:"idempotency_skipped"`
+	InflightSkipped   uint64 `json:"inflight_skipped"`
+	PendingRetry      int64  `json:"pending_retry"`
+}
