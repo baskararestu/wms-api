@@ -1,10 +1,9 @@
 package auth
 
 import (
-	"log/slog"
-
 	"github.com/baskararestu/wms-api/internal/pkg/response"
 	"github.com/baskararestu/wms-api/internal/pkg/validation"
+	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -33,14 +32,14 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 
 	res, err := h.service.Login(*req)
 	if err != nil {
-		slog.Warn("Login failed", "email", req.Email, "error", err.Error())
+		xlogger.Logger.Warn().Str("email", req.Email).Err(err).Msg("Login failed")
 		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrorResponse{
 			Code:    fiber.StatusUnauthorized,
 			Message: err.Error(),
 		})
 	}
 
-	slog.Info("User logged in successfully", "email", req.Email)
+	xlogger.Logger.Info().Str("email", req.Email).Msg("User logged in successfully")
 	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
 		Code:    fiber.StatusOK,
 		Message: "Login successful",
@@ -54,14 +53,14 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 
 	err := h.service.Register(*req)
 	if err != nil {
-		slog.Warn("Registration failed", "email", req.Email, "error", err.Error())
+		xlogger.Logger.Warn().Str("email", req.Email).Err(err).Msg("Registration failed")
 		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
 			Code:    fiber.StatusBadRequest,
 			Message: err.Error(),
 		})
 	}
 
-	slog.Info("New user registered", "email", req.Email)
+	xlogger.Logger.Info().Str("email", req.Email).Msg("New user registered")
 	return c.Status(fiber.StatusCreated).JSON(response.SuccessResponse{
 		Code:    fiber.StatusCreated,
 		Message: "User registered successfully",

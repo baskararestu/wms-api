@@ -1,18 +1,17 @@
 package app
 
 import (
-	"log"
-
 	"github.com/baskararestu/wms-api/internal/auth"
 	"github.com/baskararestu/wms-api/internal/integrations/marketplace"
 	"github.com/baskararestu/wms-api/internal/orders"
+	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
 // Run starts the application and handles DI wiring
 func Run(app *fiber.App, db *gorm.DB) {
-	log.Println("Initializing Domain Modules...")
+	xlogger.Logger.Info().Msg("Initializing Domain Modules...")
 
 	// 1. Initialize Repositories
 	authRepo := auth.NewRepository(db)
@@ -27,8 +26,7 @@ func Run(app *fiber.App, db *gorm.DB) {
 
 	// --- Integrations / Marketplace Domain ---
 	marketplaceClient := marketplace.NewClient()
-	marketplaceService := marketplace.NewService(marketplaceClient, authRepo)
-	marketplaceHandler := marketplace.NewHandler(marketplaceService)
+	_ = marketplace.NewService(marketplaceClient, authRepo)
 
 	// 3. Initialize Handlers
 	authHandler := auth.NewHandler(authService)
@@ -38,7 +36,6 @@ func Run(app *fiber.App, db *gorm.DB) {
 	api := app.Group("/api/v1")
 	authHandler.RegisterRoutes(api.Group("/auth"))
 	ordersHandler.RegisterRoutes(api.Group("/orders"))
-	marketplaceHandler.RegisterRoutes(api.Group("/integrations/marketplace"))
 
-	log.Println("✅ Domain Modules Loaded and Routes Registered")
+	xlogger.Logger.Info().Msg("✅ Domain Modules Loaded and Routes Registered")
 }

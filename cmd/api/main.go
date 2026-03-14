@@ -1,11 +1,10 @@
 package main
 
 import (
-	"log"
-
 	appInit "github.com/baskararestu/wms-api/internal/app"
 	"github.com/baskararestu/wms-api/internal/config"
 	"github.com/baskararestu/wms-api/internal/database"
+	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -14,6 +13,7 @@ import (
 func main() {
 	// Initialize Config and DB
 	config.LoadConfig()
+	xlogger.Setup(config.App)
 	database.ConnectDB()
 
 	app := fiber.New(fiber.Config{
@@ -35,5 +35,7 @@ func main() {
 	// Wire and Run Domain modules
 	appInit.Run(app, database.DB)
 
-	log.Fatal(app.Listen(":3000"))
+	if err := app.Listen(":3000"); err != nil {
+		xlogger.Logger.Fatal().Err(err).Msg("Failed to start server")
+	}
 }

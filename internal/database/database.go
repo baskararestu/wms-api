@@ -17,11 +17,11 @@ var DB *gorm.DB
 
 // ConnectDB establishes the connection to the PostgreSQL database
 func ConnectDB() {
-	host := config.GetEnv("DB_HOST", "localhost")
-	user := config.GetEnv("DB_USER", "postgres")
-	password := config.GetEnv("DB_PASSWORD", "postgres123")
-	dbname := config.GetEnv("DB_NAME", "wms_db")
-	port := config.GetEnv("DB_PORT", "5432")
+	host := config.App.DatabaseHost
+	user := config.App.DatabaseUser
+	password := config.App.DatabasePassword
+	dbname := config.App.DatabaseName
+	port := config.App.DatabasePort
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Jakarta",
 		host, user, password, dbname, port,
