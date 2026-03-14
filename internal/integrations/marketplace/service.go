@@ -42,8 +42,8 @@ type service struct {
 	idempotencySkipped atomic.Uint64
 	inflightSkipped    atomic.Uint64
 
-	metricsMu      sync.RWMutex
-	lastRetryRunAt time.Time
+	metricsMu       sync.RWMutex
+	lastRetryRunAt  time.Time
 	lastErrorSample string
 }
 
@@ -172,6 +172,17 @@ func (s *service) GetShopDetailByShopID(shopID string) (*ShopDetailResponse, err
 
 	shopDetail, err := s.client.GetShopDetail(accessToken)
 	if err != nil {
+		if isMarketplaceUnauthorizedError(err) {
+			refreshedToken, refreshErr := s.forceRefreshAccessToken(cred)
+			if refreshErr != nil {
+				return nil, refreshErr
+			}
+
+			shopDetail, err = s.client.GetShopDetail(refreshedToken)
+			if err == nil {
+				return shopDetail, nil
+			}
+		}
 		return nil, errors.New("failed to fetch shop detail")
 	}
 
@@ -189,7 +200,19 @@ func (s *service) GetOrderListByShopID(shopID string) (*OrderListResponse, error
 		return nil, err
 	}
 
-	return s.client.GetOrderList(accessToken)
+	resp, err := s.client.GetOrderList(accessToken)
+	if err != nil {
+		if isMarketplaceUnauthorizedError(err) {
+			refreshedToken, refreshErr := s.forceRefreshAccessToken(cred)
+			if refreshErr != nil {
+				return nil, refreshErr
+			}
+			return s.client.GetOrderList(refreshedToken)
+		}
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (s *service) GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailResponse, error) {
@@ -203,7 +226,19 @@ func (s *service) GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailRe
 		return nil, err
 	}
 
-	return s.client.GetOrderDetail(accessToken, orderSN)
+	resp, err := s.client.GetOrderDetail(accessToken, orderSN)
+	if err != nil {
+		if isMarketplaceUnauthorizedError(err) {
+			refreshedToken, refreshErr := s.forceRefreshAccessToken(cred)
+			if refreshErr != nil {
+				return nil, refreshErr
+			}
+			return s.client.GetOrderDetail(refreshedToken, orderSN)
+		}
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (s *service) ShipOrder(shopID, orderSN, channelID string) (*ShipExternalOrderResponse, error) {
@@ -222,7 +257,19 @@ func (s *service) ShipOrder(shopID, orderSN, channelID string) (*ShipExternalOrd
 		ChannelID: channelID,
 	}
 
-	return s.client.ShipOrder(accessToken, req)
+	resp, err := s.client.ShipOrder(accessToken, req)
+	if err != nil {
+		if isMarketplaceUnauthorizedError(err) {
+			refreshedToken, refreshErr := s.forceRefreshAccessToken(cred)
+			if refreshErr != nil {
+				return nil, refreshErr
+			}
+			return s.client.ShipOrder(refreshedToken, req)
+		}
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (s *service) GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsResponse, error) {
@@ -250,7 +297,16 @@ func (s *service) GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsR
 
 	resp, err := s.client.GetLogisticChannels(accessToken)
 	if err != nil {
-		return nil, err
+		if isMarketplaceUnauthorizedError(err) {
+			refreshedToken, refreshErr := s.forceRefreshAccessToken(cred)
+			if refreshErr != nil {
+				return nil, refreshErr
+			}
+			resp, err = s.client.GetLogisticChannels(refreshedToken)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Cache the response
@@ -577,6 +633,10 @@ func (s *service) getValidAccessToken(cred *MarketplaceCredential) (string, erro
 		return cred.AccessToken, nil
 	}
 
+	return s.forceRefreshAccessToken(cred)
+}
+
+func (s *service) forceRefreshAccessToken(cred *MarketplaceCredential) (string, error) {
 	tokenResp, err := s.client.RefreshToken(cred.RefreshToken)
 	if err != nil {
 		if isMarketplaceUnavailableError(err) {
@@ -644,6 +704,17 @@ func isMarketplaceUnavailableError(err error) bool {
 		strings.Contains(errMsg, "status=502") ||
 		strings.Contains(errMsg, "status=503") ||
 		strings.Contains(errMsg, "status=504") ||
+		strings.Contains(errMsg, "status=429") ||
 		strings.Contains(errMsg, "temporarily unavailable") ||
 		strings.Contains(errMsg, "timeout")
+}
+
+func isMarketplaceUnauthorizedError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "status=401") ||
+		strings.Contains(errMsg, "unauthorized")
 }

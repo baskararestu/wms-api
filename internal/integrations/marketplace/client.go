@@ -68,6 +68,61 @@ func buildHTTPError(operation string, req *http.Request, resp *http.Response) er
 	)
 }
 
+func parseRetryAfter(headerValue string) (time.Duration, bool) {
+	trimmed := strings.TrimSpace(headerValue)
+	if trimmed == "" {
+		return 0, false
+	}
+
+	if seconds, err := time.ParseDuration(trimmed + "s"); err == nil {
+		if seconds > 0 {
+			return seconds, true
+		}
+	}
+
+	if retryAt, err := http.ParseTime(trimmed); err == nil {
+		delay := time.Until(retryAt)
+		if delay > 0 {
+			return delay, true
+		}
+	}
+
+	return 0, false
+}
+
+func backoffDelay(attempt int) time.Duration {
+	if attempt < 1 {
+		attempt = 1
+	}
+
+	delay := retryDelay * time.Duration(1<<uint(attempt-1))
+	maxDelay := 5 * time.Second
+	if delay > maxDelay {
+		return maxDelay
+	}
+
+	return delay
+}
+
+func shouldRetryStatus(resp *http.Response, attempt int) (time.Duration, bool) {
+	if attempt >= maxRetryCount {
+		return 0, false
+	}
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		if retryAfter, ok := parseRetryAfter(resp.Header.Get("Retry-After")); ok {
+			return retryAfter, true
+		}
+		return backoffDelay(attempt), true
+	}
+
+	if resp.StatusCode >= http.StatusInternalServerError {
+		return backoffDelay(attempt), true
+	}
+
+	return 0, false
+}
+
 func NewClient() Client {
 	return &client{
 		baseURL:    config.App.MarketplaceBaseURL,
@@ -121,9 +176,10 @@ func (c *client) Authorize(shopID string, redirectURL string) (*AuthCodeResponse
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("authorize", req, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
@@ -187,9 +243,10 @@ func (c *client) GetToken(code string, authorizeCtx *AuthorizeContext) (*TokenRe
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("token exchange", req, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
@@ -245,9 +302,10 @@ func (c *client) RefreshToken(refreshToken string) (*TokenResponse, error) {
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("token refresh", req, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
@@ -281,22 +339,41 @@ func (c *client) GetShopDetail(accessToken string) (*ShopDetailResponse, error) 
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryCount; attempt++ {
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetryCount {
+				time.Sleep(backoffDelay(attempt))
+				continue
+			}
+			return nil, err
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, buildHTTPError("get shop detail", req, resp)
+		if resp.StatusCode != http.StatusOK {
+			httpErr := buildHTTPError("get shop detail", req, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
+			resp.Body.Close()
+			lastErr = httpErr
+			if shouldRetry {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, httpErr
+		}
+
+		var shopResp ShopDetailResponse
+		err = json.NewDecoder(resp.Body).Decode(&shopResp)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		return &shopResp, nil
 	}
 
-	var shopResp ShopDetailResponse
-	if err := json.NewDecoder(resp.Body).Decode(&shopResp); err != nil {
-		return nil, err
-	}
-
-	return &shopResp, nil
+	return nil, lastErr
 }
 
 func (c *client) GetOrderList(accessToken string) (*OrderListResponse, error) {
@@ -324,9 +401,10 @@ func (c *client) GetOrderList(accessToken string) (*OrderListResponse, error) {
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("get order list", req, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
@@ -371,9 +449,10 @@ func (c *client) GetOrderDetail(accessToken, orderSN string) (*OrderDetailRespon
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("get order detail", req, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
@@ -424,9 +503,10 @@ func (c *client) ShipOrder(accessToken string, req ShipExternalOrderRequest) (*S
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("ship order", httpReq, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
@@ -471,9 +551,10 @@ func (c *client) GetLogisticChannels(accessToken string) (*LogisticChannelsRespo
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("get logistic channels", req, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
@@ -520,9 +601,10 @@ func (c *client) NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatus
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("notify order status", httpReq, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
@@ -569,9 +651,10 @@ func (c *client) NotifyShippingStatus(req WebhookStatusNotifyRequest) (*Shipping
 
 		if resp.StatusCode != http.StatusOK {
 			httpErr := buildHTTPError("notify shipping status", httpReq, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
 			lastErr = httpErr
-			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+			if shouldRetry {
 				time.Sleep(retryDelay)
 				continue
 			}
