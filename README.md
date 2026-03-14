@@ -118,3 +118,21 @@ curl -X POST http://localhost:3000/api/auth/logout \
 	-H 'Content-Type: application/json' \
 	-d '{"refresh_token":"<your-refresh-token>"}'
 ```
+
+## 🔌 Marketplace Integration (Minimal Test Scope)
+
+Flow untuk technical test dibuat sederhana: backend melakukan authorize + token exchange + save credential dalam satu endpoint.
+
+### Connect Shop (One-Step)
+
+```bash
+curl -X POST http://localhost:3000/api/integrations/marketplace/shops/connect/start \
+	-H 'Content-Type: application/json' \
+	-d '{"shop_id":"shopee-123"}'
+```
+
+### Get Connected Shop Detail
+
+```bash
+curl http://localhost:3000/api/integrations/marketplace/shops/shopee-123
+```

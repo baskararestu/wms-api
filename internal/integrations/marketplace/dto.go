@@ -5,6 +5,19 @@ type LinkShopRequest struct {
 	ShopID string `json:"shop_id" validate:"required"`
 }
 
+// OAuthCallbackRequest represents query payload for OAuth callback completion
+type OAuthCallbackRequest struct {
+	Code   string `query:"code" validate:"required"`
+	ShopID string `query:"shop_id" validate:"required"`
+	State  string `query:"state" validate:"required"`
+}
+
+// LinkShopStartResponse contains the result of one-step connect flow
+type LinkShopStartResponse struct {
+	ShopID    string `json:"shop_id"`
+	Connected bool   `json:"connected"`
+}
+
 // AuthCodeResponse represents the mock API response for /oauth/authorize
 type AuthCodeResponse struct {
 	Message string `json:"message"`
@@ -30,5 +43,18 @@ type TokenResponse struct {
 		ExpiresIn    int    `json:"expires_in"` // seconds (e.g., 300)
 		RefreshToken string `json:"refresh_token"`
 		TokenType    string `json:"token_type"`
+	} `json:"data"`
+}
+
+// ShopDetailResponse represents marketplace shop detail response
+type ShopDetailResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		ShopID      string `json:"shop_id"`
+		ShopName    string `json:"shop_name"`
+		Marketplace string `json:"marketplace"`
+		Country     string `json:"country"`
+		Currency    string `json:"currency"`
+		AccessLevel string `json:"access_level"`
 	} `json:"data"`
 }
