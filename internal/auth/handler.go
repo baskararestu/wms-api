@@ -21,6 +21,8 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Post /api/v1/auth/login
 	router.Post("/login", validation.New[LoginRequest](), h.Login)
+	router.Post("/refresh", validation.New[RefreshTokenRequest](), h.RefreshToken)
+	router.Post("/logout", validation.New[LogoutRequest](), h.Logout)
 }
 
 // Login handles the user authentication and token generation
@@ -42,5 +44,44 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		Code:    fiber.StatusOK,
 		Message: "Login successful",
 		Data:    res,
+	})
+}
+
+// RefreshToken handles access token renewal using a refresh token
+func (h *Handler) RefreshToken(c *fiber.Ctx) error {
+	req := c.Locals("payload").(*RefreshTokenRequest)
+
+	res, err := h.service.RefreshToken(*req)
+	if err != nil {
+		xlogger.Logger.Warn().Err(err).Msg("Refresh token failed")
+		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrorResponse{
+			Code:    fiber.StatusUnauthorized,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
+		Code:    fiber.StatusOK,
+		Message: "Token refreshed successfully",
+		Data:    res,
+	})
+}
+
+// Logout invalidates a refresh token session
+func (h *Handler) Logout(c *fiber.Ctx) error {
+	req := c.Locals("payload").(*LogoutRequest)
+
+	err := h.service.Logout(*req)
+	if err != nil {
+		xlogger.Logger.Warn().Err(err).Msg("Logout failed")
+		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrorResponse{
+			Code:    fiber.StatusUnauthorized,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
+		Code:    fiber.StatusOK,
+		Message: "Logout successful",
 	})
 }

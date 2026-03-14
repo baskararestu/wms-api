@@ -51,6 +51,7 @@ func ConnectDB() {
 	// Auto Migrate the schemas
 	err = DB.AutoMigrate(
 		&auth.User{},
+		&auth.RefreshToken{},
 		&auth.MarketplaceCredential{},
 		&orders.Order{},
 		&orders.OrderItem{},

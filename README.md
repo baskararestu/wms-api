@@ -86,3 +86,35 @@ go test ./tests/unit/...
 # Run Integration Tests
 go test ./tests/integration/...
 ```
+
+## 🔐 Auth Flow (Hybrid Refresh Token)
+
+Internal auth now uses:
+
+- Access token (JWT, short-lived)
+- Refresh token (opaque token)
+- Hybrid persistence: refresh token hash in PostgreSQL + active session cache in Redis
+
+### Login
+
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+	-H 'Content-Type: application/json' \
+	-d '{"email":"admin@wms.com","password":"admin123"}'
+```
+
+### Refresh Access Token
+
+```bash
+curl -X POST http://localhost:3000/api/auth/refresh \
+	-H 'Content-Type: application/json' \
+	-d '{"refresh_token":"<your-refresh-token>"}'
+```
+
+### Logout (Revoke Refresh Token)
+
+```bash
+curl -X POST http://localhost:3000/api/auth/logout \
+	-H 'Content-Type: application/json' \
+	-d '{"refresh_token":"<your-refresh-token>"}'
+```

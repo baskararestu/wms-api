@@ -8,5 +8,16 @@ type LoginRequest struct {
 
 // LoginResponse represents the token payload returned upon successful login
 type LoginResponse struct {
-	Token string `json:"token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+// RefreshTokenRequest represents payload for refresh endpoint
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+// LogoutRequest represents payload for logout endpoint
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
