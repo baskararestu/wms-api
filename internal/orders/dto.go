@@ -87,6 +87,16 @@ type WebhookPayload struct {
 	} `json:"data"`
 }
 
+type WebhookOrderStatusRequest struct {
+	OrderSN string `json:"order_sn" validate:"required"`
+	Status  string `json:"status" validate:"required"`
+}
+
+type WebhookShippingStatusRequest struct {
+	OrderSN string `json:"order_sn" validate:"required"`
+	Status  string `json:"status" validate:"required"`
+}
+
 // ShipOrderRequest represents the payload for POST /orders/:order_sn/ship
 type ShipOrderRequest struct {
 	ChannelID string `json:"channel_id" validate:"required"`

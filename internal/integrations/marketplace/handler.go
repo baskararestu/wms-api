@@ -20,9 +20,10 @@ func NewHandler(service Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
+	router.Get("/oauth/callback", h.OAuthCallback)
+
 	protected := router.Group("/", middleware.Protected())
 	protected.Post("/shops/connect/start", validation.New[LinkShopRequest](), h.StartLinkShop)
-	protected.Get("/oauth/callback", h.OAuthCallback)
 	protected.Get("/shops/:shopID", h.GetShopDetail)
 	protected.Get("/shops/:shopID/logistic/channels", h.GetLogisticChannels)
 }

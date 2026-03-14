@@ -20,6 +20,8 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	// Public or external routes
 	router.Post("/webhook", validation.New[WebhookPayload](), h.HandleMarketplaceWebhook)
+	router.Post("/webhook/order-status", validation.New[WebhookOrderStatusRequest](), h.HandleOrderStatusWebhook)
+	router.Post("/webhook/shipping-status", validation.New[WebhookShippingStatusRequest](), h.HandleShippingStatusWebhook)
 
 	// Protected routes that require a valid user token
 	protected := router.Group("/", middleware.Protected())
@@ -213,4 +215,46 @@ func (h *Handler) HandleMarketplaceWebhook(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "success"})
+}
+
+func (h *Handler) HandleOrderStatusWebhook(c *fiber.Ctx) error {
+	req := c.Locals("payload").(*WebhookOrderStatusRequest)
+
+	err := h.service.ProcessOrderStatusWebhook(*req)
+	if err != nil {
+		xlogger.Logger.Error().Err(err).Str("order_sn", req.OrderSN).Msg("Failed to process order-status webhook")
+		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse{
+			Code:    fiber.StatusInternalServerError,
+			Message: "Failed to process order status webhook",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Order status updated",
+		"data": fiber.Map{
+			"order_sn": req.OrderSN,
+			"status":   req.Status,
+		},
+	})
+}
+
+func (h *Handler) HandleShippingStatusWebhook(c *fiber.Ctx) error {
+	req := c.Locals("payload").(*WebhookShippingStatusRequest)
+
+	err := h.service.ProcessShippingStatusWebhook(*req)
+	if err != nil {
+		xlogger.Logger.Error().Err(err).Str("order_sn", req.OrderSN).Msg("Failed to process shipping-status webhook")
+		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse{
+			Code:    fiber.StatusInternalServerError,
+			Message: "Failed to process shipping status webhook",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Shipping status updated",
+		"data": fiber.Map{
+			"order_sn":       req.OrderSN,
+			"shipping_state": req.Status,
+		},
+	})
 }

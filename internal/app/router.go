@@ -5,6 +5,7 @@ import (
 	"github.com/baskararestu/wms-api/internal/config"
 	"github.com/baskararestu/wms-api/internal/integrations/marketplace"
 	"github.com/baskararestu/wms-api/internal/orders"
+	"github.com/baskararestu/wms-api/internal/pkg/validation"
 	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -37,6 +38,9 @@ func Run(app *fiber.App, db *gorm.DB) {
 	// 4. Register Routes
 	api := app.Group("/api")
 	authHandler.RegisterRoutes(api.Group("/auth"))
+	webhook := api.Group("/webhook")
+	webhook.Post("/order-status", validation.New[orders.WebhookOrderStatusRequest](), ordersHandler.HandleOrderStatusWebhook)
+	webhook.Post("/shipping-status", validation.New[orders.WebhookShippingStatusRequest](), ordersHandler.HandleShippingStatusWebhook)
 	ordersHandler.RegisterRoutes(api.Group("/orders"))
 	marketplaceHandler.RegisterRoutes(api.Group("/integrations/marketplace"))
 

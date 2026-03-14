@@ -16,6 +16,8 @@ type Repository interface {
 	UpsertOrder(order *Order) error
 	UpdateWMSStatus(id uuid.UUID, newStatus string) error
 	UpdateWMSStatusBySN(orderSN, newStatus string) error
+	UpdateOrderStatus(orderSN, status string) error
+	UpdateShippingStatus(orderSN, status string) error
 	UpdateMarketplaceStatus(orderSN, mpStatus, shipStatus, tracking string) error
 	UpdateShipmentInfo(orderSN, trackingNum, shippingStatus, shippingChannel, wmsStatus string) error
 }
@@ -135,6 +137,14 @@ func (r *repository) UpdateWMSStatus(id uuid.UUID, newStatus string) error {
 
 func (r *repository) UpdateWMSStatusBySN(orderSN, newStatus string) error {
 	return r.db.Model(&Order{}).Where("order_sn = ?", orderSN).Update("wms_status", newStatus).Error
+}
+
+func (r *repository) UpdateOrderStatus(orderSN, status string) error {
+	return r.db.Model(&Order{}).Where("order_sn = ?", orderSN).Update("marketplace_status", status).Error
+}
+
+func (r *repository) UpdateShippingStatus(orderSN, status string) error {
+	return r.db.Model(&Order{}).Where("order_sn = ?", orderSN).Update("shipping_status", status).Error
 }
 
 func (r *repository) UpdateMarketplaceStatus(orderSN, mpStatus, shipStatus, tracking string) error {
