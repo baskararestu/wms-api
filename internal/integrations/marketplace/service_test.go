@@ -81,6 +81,20 @@ func (m *mockMarketplaceClient) GetLogisticChannels(accessToken string) (*Logist
 	return nil, nil // not fully mocked for existing auth tests yet
 }
 
+func (m *mockMarketplaceClient) NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatusNotifyResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &OrderStatusNotifyResponse{}, nil
+}
+
+func (m *mockMarketplaceClient) NotifyShippingStatus(req WebhookStatusNotifyRequest) (*ShippingStatusNotifyResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &ShippingStatusNotifyResponse{}, nil
+}
+
 type mockMarketplaceRepo struct {
 	credByShopID map[string]*MarketplaceCredential
 	upsertCount  int

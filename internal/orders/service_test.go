@@ -47,6 +47,14 @@ func (m *mockMarketplaceSvc) ShipOrder(shopID, orderSN, channelID string) (*mark
 	return m.shipOrderRtn, m.shipOrderErr
 }
 
+func (m *mockMarketplaceSvc) NotifyOrderStatus(orderSN, status string) error {
+	return nil
+}
+
+func (m *mockMarketplaceSvc) NotifyShippingStatus(orderSN, status string) error {
+	return nil
+}
+
 func TestShipOrder_Success(t *testing.T) {
 	repo := &mockOrderRepo{
 		findOrderBySNRtn: &Order{
