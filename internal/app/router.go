@@ -33,7 +33,7 @@ func Run(app *fiber.App, db *gorm.DB) {
 	ordersHandler := orders.NewHandler(ordersService)
 
 	// 4. Register Routes
-	api := app.Group("/api/v1")
+	api := app.Group("/api")
 	authHandler.RegisterRoutes(api.Group("/auth"))
 	ordersHandler.RegisterRoutes(api.Group("/orders"))
 
