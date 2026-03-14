@@ -74,6 +74,13 @@ func (m *mockMarketplaceClient) ShipOrder(accessToken string, req ShipExternalOr
 	return m.shipResp, nil
 }
 
+func (m *mockMarketplaceClient) GetLogisticChannels(accessToken string) (*LogisticChannelsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return nil, nil // not fully mocked for existing auth tests yet
+}
+
 type mockMarketplaceRepo struct {
 	credByShopID map[string]*MarketplaceCredential
 	upsertCount  int
