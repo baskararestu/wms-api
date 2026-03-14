@@ -21,14 +21,13 @@ func Run(app *fiber.App, db *gorm.DB) {
 
 	// 2. Initialize Services (DI happens here)
 	authService := auth.NewService(authRepo)
-	
-	// Example: Since Orders needs Auth functionality, we inject the authService
-	// assuming auth.Service satisfies the orders.AuthProvider interface.
-	ordersService := orders.NewService(ordersRepo) // Using ordersRepo inside orders service
 
 	// --- Integrations / Marketplace Domain ---
 	marketplaceClient := marketplace.NewClient()
 	marketplaceService := marketplace.NewService(marketplaceClient, marketplaceRepo, config.App.RedirectURL)
+
+	// Orders domain uses marketplace service for Sync functionality
+	ordersService := orders.NewService(ordersRepo, marketplaceService)
 
 	// 3. Initialize Handlers
 	authHandler := auth.NewHandler(authService)

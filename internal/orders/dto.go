@@ -26,11 +26,11 @@ type GetOrderListQuery struct {
 
 // OrderListResponse represents the response payload for GET /orders
 type OrderListResponse struct {
-	Total       int64             `json:"total"`
-	Page        int               `json:"page"`
-	Limit       int               `json:"limit"`
-	TotalPages  int               `json:"total_pages"`
-	Orders      []OrderListItem   `json:"orders"`
+	Total        int64             `json:"total"`
+	Page         int               `json:"page"`
+	Limit        int               `json:"limit"`
+	TotalPages   int               `json:"total_pages"`
+	Orders       []OrderListItem   `json:"orders"`
 	SummaryStats OrderSummaryStats `json:"summary_stats"`
 }
 
@@ -42,7 +42,6 @@ type OrderSummaryStats struct {
 type OrderListItem struct {
 	ID                uuid.UUID `json:"id"`
 	OrderSN           string    `json:"order_sn"`
-	Marketplace       string    `json:"marketplace"`
 	MarketplaceStatus string    `json:"marketplace_status"`
 	ShippingStatus    string    `json:"shipping_status"`
 	WMSStatus         string    `json:"wms_status"`
@@ -77,11 +76,11 @@ type SyncOrdersRequest struct {
 
 // WebhookPayload represents the expected payload when marketplace status changes
 type WebhookPayload struct {
-	ShopID     string `json:"shop_id" validate:"required"`
-	OrderSN    string `json:"order_sn" validate:"required"`
-	Code       string `json:"code" validate:"required"` // e.g., ORDER_STATUS_UPDATE
-	Timestamp  int64  `json:"timestamp" validate:"required"`
-	Data       struct {
+	ShopID    string `json:"shop_id" validate:"required"`
+	OrderSN   string `json:"order_sn" validate:"required"`
+	Code      string `json:"code" validate:"required"` // e.g., ORDER_STATUS_UPDATE
+	Timestamp int64  `json:"timestamp" validate:"required"`
+	Data      struct {
 		MarketplaceStatus string `json:"marketplace_status"`
 		ShippingStatus    string `json:"shipping_status"`
 		TrackingNumber    string `json:"tracking_number"`

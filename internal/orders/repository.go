@@ -119,9 +119,9 @@ func (r *repository) FindOrderBySN(orderSN string) (*Order, error) {
 func (r *repository) UpsertOrder(order *Order) error {
 	// GORM raw upsert since we want to handle the specific fields
 	return r.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "order_sn"}},
+		Columns: []clause.Column{{Name: "order_sn"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"marketplace_status", "shipping_status", "tracking_number", 
+			"marketplace_status", "shipping_status", "tracking_number",
 			"updated_at", "total_amount",
 		}),
 	}).Create(order).Error
