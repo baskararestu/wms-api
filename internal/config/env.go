@@ -43,6 +43,7 @@ func LoadConfig() error {
 		DatabaseUser:       getEnvRequired("DB_USER"),
 		DatabasePassword:   getEnvRequired("DB_PASSWORD"),
 		DatabaseName:       getEnvRequired("DB_NAME"),
+		DatabasePort:       getEnvRequired("DB_PORT"),
 		MarketplaceBaseURL: getEnvRequired("MARKETPLACE_BASE_URL"),
 		PartnerID:          getEnvRequired("PARTNER_ID"),
 		PartnerKey:         getEnvRequired("PARTNER_KEY"),
