@@ -105,3 +105,16 @@ type ShipExternalOrderResponse struct {
 		TrackingNo     string `json:"tracking_no"`
 	} `json:"data"`
 }
+
+// LogisticChannelDTO represents a single shipping channel from the marketplace
+type LogisticChannelDTO struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Code string `json:"code"`
+}
+
+// LogisticChannelsResponse represents the marketplace /logistic/channels response
+type LogisticChannelsResponse struct {
+	Message string               `json:"message"`
+	Data    []LogisticChannelDTO `json:"data"`
+}

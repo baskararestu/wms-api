@@ -1,6 +1,7 @@
 package marketplace
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ type Service interface {
 	GetOrderListByShopID(shopID string) (*OrderListResponse, error)
 	GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailResponse, error)
 	ShipOrder(shopID, orderSN, channelID string) (*ShipExternalOrderResponse, error)
+	GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsResponse, error)
 }
 
 type service struct {
@@ -187,6 +189,45 @@ func (s *service) ShipOrder(shopID, orderSN, channelID string) (*ShipExternalOrd
 	}
 
 	return s.client.ShipOrder(accessToken, req)
+}
+
+func (s *service) GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsResponse, error) {
+	// Let's check cache first
+	cacheKey := "marketplace:logistic:channels:" + shopID
+	if redis.Client != nil {
+		cached, err := redis.Client.Get(redis.Ctx, cacheKey).Result()
+		if err == nil && cached != "" {
+			var resp LogisticChannelsResponse
+			if json.Unmarshal([]byte(cached), &resp) == nil {
+				return &resp, nil
+			}
+		}
+	}
+
+	cred, err := s.repo.FindMarketplaceCredentialByShopID(shopID)
+	if err != nil {
+		return nil, ErrShopNotConnected
+	}
+
+	accessToken, err := s.getValidAccessToken(cred)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.GetLogisticChannels(accessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the response
+	if redis.Client != nil {
+		if respBytes, err := json.Marshal(resp); err == nil {
+			// Cache for 30 seconds as requested
+			_ = redis.Client.Set(redis.Ctx, cacheKey, respBytes, 30*time.Second).Err()
+		}
+	}
+
+	return resp, nil
 }
 
 func (s *service) getValidAccessToken(cred *MarketplaceCredential) (string, error) {

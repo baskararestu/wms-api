@@ -24,6 +24,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	protected.Post("/shops/connect/start", validation.New[LinkShopRequest](), h.StartLinkShop)
 	protected.Get("/oauth/callback", h.OAuthCallback)
 	protected.Get("/shops/:shopID", h.GetShopDetail)
+	protected.Get("/shops/:shopID/logistic/channels", h.GetLogisticChannels)
 }
 
 func (h *Handler) StartLinkShop(c *fiber.Ctx) error {
@@ -113,4 +114,38 @@ func (h *Handler) GetShopDetail(c *fiber.Ctx) error {
 		Message: fmt.Sprintf("Shop detail for %s", shopID),
 		Data:    shopDetail,
 	})
+}
+
+func (h *Handler) GetLogisticChannels(c *fiber.Ctx) error {
+	shopID := c.Params("shopID")
+	if shopID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "shopID is required",
+		})
+	}
+
+	channels, err := h.service.GetLogisticChannelsByShopID(shopID)
+	if err != nil {
+		xlogger.Logger.Warn().Str("shop_id", shopID).Err(err).Msg("Failed to fetch logistic channels")
+		if errors.Is(err, ErrShopNotConnected) {
+			return c.Status(fiber.StatusNotFound).JSON(response.ErrorResponse{
+				Code:    fiber.StatusNotFound,
+				Message: err.Error(),
+			})
+		}
+		if errors.Is(err, ErrMarketplaceUnavailable) {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(response.ErrorResponse{
+				Code:    fiber.StatusServiceUnavailable,
+				Message: err.Error(),
+			})
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	// We can manually forward the literal data structure or return the nested one
+	return c.Status(fiber.StatusOK).JSON(channels)
 }

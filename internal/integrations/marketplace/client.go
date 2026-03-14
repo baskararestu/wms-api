@@ -33,6 +33,7 @@ type Client interface {
 	GetOrderList(accessToken string) (*OrderListResponse, error)
 	GetOrderDetail(accessToken, orderSN string) (*OrderDetailResponse, error)
 	ShipOrder(accessToken string, req ShipExternalOrderRequest) (*ShipExternalOrderResponse, error)
+	GetLogisticChannels(accessToken string) (*LogisticChannelsResponse, error)
 }
 
 type AuthorizeContext struct {
@@ -438,6 +439,53 @@ func (c *client) ShipOrder(accessToken string, req ShipExternalOrderRequest) (*S
 		}
 
 		return &shipResp, nil
+	}
+
+	return nil, lastErr
+}
+
+func (c *client) GetLogisticChannels(accessToken string) (*LogisticChannelsResponse, error) {
+	url := fmt.Sprintf("%s/logistic/channels", c.baseURL)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryCount; attempt++ {
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			httpErr := buildHTTPError("get logistic channels", req, resp)
+			resp.Body.Close()
+			lastErr = httpErr
+			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, httpErr
+		}
+
+		var channelsResp LogisticChannelsResponse
+		err = json.NewDecoder(resp.Body).Decode(&channelsResp)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		return &channelsResp, nil
 	}
 
 	return nil, lastErr
