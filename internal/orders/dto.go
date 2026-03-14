@@ -75,29 +75,6 @@ type SyncOrdersRequest struct {
 	ShopID string `json:"shop_id" validate:"required"`
 }
 
-// WebhookPayload represents the expected payload when marketplace status changes
-type WebhookPayload struct {
-	ShopID    string `json:"shop_id" validate:"required"`
-	OrderSN   string `json:"order_sn" validate:"required"`
-	Code      string `json:"code" validate:"required"` // e.g., ORDER_STATUS_UPDATE
-	Timestamp int64  `json:"timestamp" validate:"required"`
-	Data      struct {
-		MarketplaceStatus string `json:"marketplace_status"`
-		ShippingStatus    string `json:"shipping_status"`
-		TrackingNumber    string `json:"tracking_number"`
-	} `json:"data"`
-}
-
-type WebhookOrderStatusRequest struct {
-	OrderSN string `json:"order_sn" validate:"required"`
-	Status  string `json:"status" validate:"required"`
-}
-
-type WebhookShippingStatusRequest struct {
-	OrderSN string `json:"order_sn" validate:"required"`
-	Status  string `json:"status" validate:"required"`
-}
-
 // ShipOrderRequest represents the payload for POST /orders/:order_sn/ship
 type ShipOrderRequest struct {
 	ChannelID string `json:"channel_id" validate:"required"`

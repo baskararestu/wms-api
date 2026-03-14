@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/baskararestu/wms-api/internal/integrations/marketplace"
@@ -22,9 +21,6 @@ type Service interface {
 	PackOrder(orderSN string) error
 	ShipOrder(orderSN, channelID string) (*ShipOrderResponse, error)
 	SyncMarketplaceOrders(shopID string) error
-	ProcessOrderStatusWebhook(payload WebhookOrderStatusRequest) error
-	ProcessShippingStatusWebhook(payload WebhookShippingStatusRequest) error
-	ProcessWebhook(payload WebhookPayload) error
 }
 
 type service struct {
@@ -323,59 +319,6 @@ func (s *service) SyncMarketplaceOrders(shopID string) error {
 	return nil
 }
 
-func (s *service) ProcessWebhook(payload WebhookPayload) error {
-	err := s.repo.UpdateMarketplaceStatus(
-		payload.OrderSN,
-		payload.Data.MarketplaceStatus,
-		payload.Data.ShippingStatus,
-		payload.Data.TrackingNumber,
-	)
-
-	if err != nil {
-		xlogger.Logger.Error().Err(err).Str("order_sn", payload.OrderSN).Msg("Failed to update marketplace status from webhook")
-		return err
-	}
-
-	s.invalidateOrdersCache()
-	return nil
-}
-
-func (s *service) ProcessOrderStatusWebhook(payload WebhookOrderStatusRequest) error {
-	duplicate, err := s.isDuplicateWebhookEvent("order-status", payload.OrderSN, payload.Status)
-	if err != nil {
-		xlogger.Logger.Warn().Err(err).Str("order_sn", payload.OrderSN).Msg("Failed to check webhook idempotency key")
-	}
-	if duplicate {
-		return nil
-	}
-
-	if err := s.repo.UpdateOrderStatus(payload.OrderSN, payload.Status); err != nil {
-		xlogger.Logger.Error().Err(err).Str("order_sn", payload.OrderSN).Msg("Failed to update order status from webhook")
-		return err
-	}
-
-	s.invalidateOrdersCache()
-	return nil
-}
-
-func (s *service) ProcessShippingStatusWebhook(payload WebhookShippingStatusRequest) error {
-	duplicate, err := s.isDuplicateWebhookEvent("shipping-status", payload.OrderSN, payload.Status)
-	if err != nil {
-		xlogger.Logger.Warn().Err(err).Str("order_sn", payload.OrderSN).Msg("Failed to check webhook idempotency key")
-	}
-	if duplicate {
-		return nil
-	}
-
-	if err := s.repo.UpdateShippingStatus(payload.OrderSN, payload.Status); err != nil {
-		xlogger.Logger.Error().Err(err).Str("order_sn", payload.OrderSN).Msg("Failed to update shipping status from webhook")
-		return err
-	}
-
-	s.invalidateOrdersCache()
-	return nil
-}
-
 // Helpers
 func (s *service) generateCacheKey(q GetOrderListQuery) string {
 	return fmt.Sprintf("orders:list:wms=%s:mp=%s:ss=%s:shop=%s:search=%s:page=%d:limit=%d:sort=%s:%s",
@@ -389,24 +332,4 @@ func (s *service) invalidateOrdersCache() {
 			redis.Client.Del(redis.Ctx, iter.Val())
 		}
 	}
-}
-
-func (s *service) isDuplicateWebhookEvent(kind, orderSN, status string) (bool, error) {
-	if redis.Client == nil {
-		return false, nil
-	}
-
-	key := fmt.Sprintf(
-		"orders:webhook:processed:%s:%s:%s",
-		strings.ToLower(strings.TrimSpace(kind)),
-		strings.ToLower(strings.TrimSpace(orderSN)),
-		strings.ToLower(strings.TrimSpace(status)),
-	)
-
-	created, err := redis.Client.SetNX(redis.Ctx, key, "1", 10*time.Minute).Result()
-	if err != nil {
-		return false, err
-	}
-
-	return !created, nil
 }
