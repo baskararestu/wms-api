@@ -1,22 +1,85 @@
 version: "3.8"
+
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wms_api
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - wms_net
+    mem_limit: 768m
+    cpus: "1.00"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   db:
     image: postgres:15-alpine
+    container_name: wms_db
+    restart: unless-stopped
+    env_file:
+      - .env.production
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
-      POSTGRES_DB: ${DB_NAME:-wms_db}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - wms_net
+    mem_limit: 1536m
+    cpus: "1.00"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    container_name: wms_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "320mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - wms_net
+    mem_limit: 384m
+    cpus: "0.30"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  wms_net:
+    driver: bridge
 
 volumes:
   postgres_data:
