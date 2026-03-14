@@ -30,6 +30,8 @@ type Client interface {
 	GetToken(code string, authorizeCtx *AuthorizeContext) (*TokenResponse, error)
 	RefreshToken(refreshToken string) (*TokenResponse, error)
 	GetShopDetail(accessToken string) (*ShopDetailResponse, error)
+	GetOrderList(accessToken string) (*OrderListResponse, error)
+	GetOrderDetail(accessToken, orderSN string) (*OrderDetailResponse, error)
 }
 
 type AuthorizeContext struct {
@@ -39,10 +41,10 @@ type AuthorizeContext struct {
 }
 
 type client struct {
-	baseURL     string
-	partnerID   string
-	partnerKey  string
-	httpClient  *http.Client
+	baseURL    string
+	partnerID  string
+	partnerKey string
+	httpClient *http.Client
 }
 
 func buildHTTPError(operation string, req *http.Request, resp *http.Response) error {
@@ -151,7 +153,7 @@ func (c *client) GetToken(code string, authorizeCtx *AuthorizeContext) (*TokenRe
 	}
 	sign := c.generateSignature(PathToken, timestamp, code)
 
-	url := fmt.Sprintf("%s%s?partner_id=%s&timestamp=%d&sign=%s", 
+	url := fmt.Sprintf("%s%s?partner_id=%s&timestamp=%d&sign=%s",
 		c.baseURL, PathToken, c.partnerID, timestamp, sign)
 	payload := TokenRequest{
 		GrantType: "authorization_code",
@@ -210,7 +212,7 @@ func (c *client) RefreshToken(refreshToken string) (*TokenResponse, error) {
 	timestamp := time.Now().Unix()
 	sign := c.generateSignature(PathToken, timestamp, refreshToken)
 
-	url := fmt.Sprintf("%s%s?partner_id=%s&timestamp=%d&sign=%s", 
+	url := fmt.Sprintf("%s%s?partner_id=%s&timestamp=%d&sign=%s",
 		c.baseURL, PathToken, c.partnerID, timestamp, sign)
 
 	payload := TokenRequest{
@@ -291,4 +293,98 @@ func (c *client) GetShopDetail(accessToken string) (*ShopDetailResponse, error) 
 	}
 
 	return &shopResp, nil
+}
+
+func (c *client) GetOrderList(accessToken string) (*OrderListResponse, error) {
+	url := fmt.Sprintf("%s/order/list", c.baseURL)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryCount; attempt++ {
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			httpErr := buildHTTPError("get order list", req, resp)
+			resp.Body.Close()
+			lastErr = httpErr
+			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, httpErr
+		}
+
+		var listResp OrderListResponse
+		err = json.NewDecoder(resp.Body).Decode(&listResp)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		return &listResp, nil
+	}
+
+	return nil, lastErr
+}
+
+func (c *client) GetOrderDetail(accessToken, orderSN string) (*OrderDetailResponse, error) {
+	url := fmt.Sprintf("%s/order/detail?order_sn=%s", c.baseURL, orderSN)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryCount; attempt++ {
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			httpErr := buildHTTPError("get order detail", req, resp)
+			resp.Body.Close()
+			lastErr = httpErr
+			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, httpErr
+		}
+
+		var detailResp OrderDetailResponse
+		err = json.NewDecoder(resp.Body).Decode(&detailResp)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		return &detailResp, nil
+	}
+
+	return nil, lastErr
 }

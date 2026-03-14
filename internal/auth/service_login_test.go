@@ -18,9 +18,9 @@ func TestLoginReturnsAccessAndRefreshToken(t *testing.T) {
 	}
 
 	user := &User{
-		BaseModel:     BaseModel{ID: uuid.New()},
-		Email:         "admin@wms.com",
-		PasswordHash:  string(passwordHash),
+		BaseModel:    BaseModel{ID: uuid.New()},
+		Email:        "admin@wms.com",
+		PasswordHash: string(passwordHash),
 	}
 	repo.usersByEmail[user.Email] = user
 	repo.usersByID[user.ID] = user

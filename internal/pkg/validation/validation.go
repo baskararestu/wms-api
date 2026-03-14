@@ -13,7 +13,7 @@ func New[V any]() fiber.Handler {
 
 	return func(c *fiber.Ctx) error {
 		var v V
-		
+
 		if err := c.BodyParser(&v); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
 				Code:    fiber.StatusBadRequest,
@@ -31,7 +31,7 @@ func New[V any]() fiber.Handler {
 				}
 				errors = append(errors, message)
 			}
-			
+
 			return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
 				Code:    fiber.StatusBadRequest,
 				Message: "Validation failed",

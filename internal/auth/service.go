@@ -191,7 +191,7 @@ func (s *service) Logout(req LogoutRequest) error {
 // GenerateAccessToken creates an access JWT for a given user
 func (s *service) GenerateAccessToken(user *User) (string, error) {
 	secret := config.App.JWTSecret
-	
+
 	claims := jwt.MapClaims{
 		"user_id": user.ID.String(),
 		"email":   user.Email,

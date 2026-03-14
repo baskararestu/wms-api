@@ -57,6 +57,14 @@ func (m *mockMarketplaceClient) GetShopDetail(_ string) (*ShopDetailResponse, er
 	return m.shopResp, nil
 }
 
+func (m *mockMarketplaceClient) GetOrderList(_ string) (*OrderListResponse, error) {
+	return nil, nil // not tested here
+}
+
+func (m *mockMarketplaceClient) GetOrderDetail(_, _ string) (*OrderDetailResponse, error) {
+	return nil, nil // not tested here
+}
+
 type mockMarketplaceRepo struct {
 	credByShopID map[string]*MarketplaceCredential
 	upsertCount  int
@@ -88,9 +96,9 @@ func TestStartLinkShopConnectsAndStoresCredential(t *testing.T) {
 	setupTestLogger()
 
 	client := &mockMarketplaceClient{
-		authResp: &AuthCodeResponse{},
+		authResp:  &AuthCodeResponse{},
 		tokenResp: &TokenResponse{},
-		shopResp: &ShopDetailResponse{},
+		shopResp:  &ShopDetailResponse{},
 	}
 	client.authResp.Data.Code = "auth-code"
 	client.authResp.Data.ShopID = "shopee-123"

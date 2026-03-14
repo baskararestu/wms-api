@@ -9,22 +9,22 @@ import (
 
 // AppConfig holds all strongly-typed environment variables
 type Config struct {
-	AppEnv               string
-	Port                 string
-	JWTSecret            string
-	DatabaseHost         string
-	DatabaseUser         string
-	DatabasePassword     string
-	DatabaseName         string
-	DatabasePort         string
-	MarketplaceBaseURL   string
-	PartnerID            string
-	PartnerKey           string
-	RedisHost            string
-	RedisPort            string
-	RedisPassword        string
-	IsDevelopment        bool
-	RedirectURL           string
+	AppEnv             string
+	Port               string
+	JWTSecret          string
+	DatabaseHost       string
+	DatabaseUser       string
+	DatabasePassword   string
+	DatabaseName       string
+	DatabasePort       string
+	MarketplaceBaseURL string
+	PartnerID          string
+	PartnerKey         string
+	RedisHost          string
+	RedisPort          string
+	RedisPassword      string
+	IsDevelopment      bool
+	RedirectURL        string
 }
 
 // Global configuration instance

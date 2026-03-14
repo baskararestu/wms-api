@@ -29,13 +29,13 @@ func ConnectDB() {
 	)
 
 	var err error
-	
+
 	// Add retry logic for docker compose startup delays
 	for i := 0; i < 5; i++ {
 		DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Info),
 		})
-		
+
 		if err == nil {
 			break
 		}
@@ -60,7 +60,6 @@ func ConnectDB() {
 	if err != nil {
 		xlogger.Logger.Fatal().Err(err).Msg("Failed to run migrations")
 	}
-	
 	xlogger.Logger.Info().Msg("✅ Database Migration completed successfully!")
 
 	// Seed Defaults

@@ -58,3 +58,34 @@ type ShopDetailResponse struct {
 		AccessLevel string `json:"access_level"`
 	} `json:"data"`
 }
+
+// OrderItemDTO represents an item in an order from the mock API
+type OrderItemDTO struct {
+	SKU      string  `json:"sku"`
+	Quantity int     `json:"qty"`
+	Price    float64 `json:"price"`
+}
+
+// OrderDTO represents an order from the mock API
+type OrderDTO struct {
+	OrderSN        string         `json:"order_sn"`
+	ShopID         string         `json:"shop_id"`
+	Status         string         `json:"status"` // Marketplace status
+	ShippingStatus string         `json:"shipping_status"`
+	TrackingNumber string         `json:"tracking_number,omitempty"`
+	Items          []OrderItemDTO `json:"items"`
+	TotalAmount    float64        `json:"total_amount"`
+	CreatedAt      string         `json:"created_at"` // ISO8601 string
+}
+
+// OrderListResponse represents the response for /order/list
+type OrderListResponse struct {
+	Message string     `json:"message"`
+	Data    []OrderDTO `json:"data"`
+}
+
+// OrderDetailResponse represents the response for /order/detail
+type OrderDetailResponse struct {
+	Message string   `json:"message"`
+	Data    OrderDTO `json:"data"`
+}

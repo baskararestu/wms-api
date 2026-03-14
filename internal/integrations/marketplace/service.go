@@ -15,11 +15,13 @@ type Service interface {
 	StartLinkShop(shopID string) (*LinkShopStartResponse, error)
 	CompleteLinkShop(code, shopID, state string) error
 	GetShopDetailByShopID(shopID string) (*ShopDetailResponse, error)
+	GetOrderListByShopID(shopID string) (*OrderListResponse, error)
+	GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailResponse, error)
 }
 
 type service struct {
-	client Client
-	repo   Repository
+	client      Client
+	repo        Repository
 	redirectURL string
 }
 
@@ -31,8 +33,8 @@ var (
 // NewService creates a new Marketplace Integration Service
 func NewService(client Client, repo Repository, redirectURL string) Service {
 	return &service{
-		client: client,
-		repo:   repo,
+		client:      client,
+		repo:        repo,
 		redirectURL: redirectURL,
 	}
 }
@@ -108,7 +110,7 @@ func (s *service) completeLinkShopWithAuthorizeContext(code, shopID, state strin
 		AccessToken:  tokenResp.Data.AccessToken,
 		RefreshToken: tokenResp.Data.RefreshToken,
 	}
-	
+
 	err = s.repo.UpsertMarketplaceCredential(cred, tokenResp.Data.ExpiresIn)
 	if err != nil {
 		xlogger.Logger.Error().Str("shop_id", shopID).Err(err).Msg("Failed to save credentials to DB")
@@ -137,6 +139,34 @@ func (s *service) GetShopDetailByShopID(shopID string) (*ShopDetailResponse, err
 	}
 
 	return shopDetail, nil
+}
+
+func (s *service) GetOrderListByShopID(shopID string) (*OrderListResponse, error) {
+	cred, err := s.repo.FindMarketplaceCredentialByShopID(shopID)
+	if err != nil {
+		return nil, ErrShopNotConnected
+	}
+
+	accessToken, err := s.getValidAccessToken(cred)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.GetOrderList(accessToken)
+}
+
+func (s *service) GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailResponse, error) {
+	cred, err := s.repo.FindMarketplaceCredentialByShopID(shopID)
+	if err != nil {
+		return nil, ErrShopNotConnected
+	}
+
+	accessToken, err := s.getValidAccessToken(cred)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.GetOrderDetail(accessToken, orderSN)
 }
 
 func (s *service) getValidAccessToken(cred *MarketplaceCredential) (string, error) {

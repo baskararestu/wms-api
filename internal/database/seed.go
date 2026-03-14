@@ -15,14 +15,14 @@ func SeedAll(db *gorm.DB) {
 func seedAdminUser(db *gorm.DB) {
 	var count int64
 	db.Model(&auth.User{}).Where("email = ?", "admin@wms.com").Count(&count)
-	
+
 	if count == 0 {
 		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
 		admin := &auth.User{
 			Email:        "admin@wms.com",
 			PasswordHash: string(hashedPassword),
 		}
-		
+
 		if err := db.Create(admin).Error; err != nil {
 			xlogger.Logger.Fatal().Err(err).Msg("Failed to seed admin user")
 		}
