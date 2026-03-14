@@ -118,3 +118,24 @@ type LogisticChannelsResponse struct {
 	Message string               `json:"message"`
 	Data    []LogisticChannelDTO `json:"data"`
 }
+
+type WebhookStatusNotifyRequest struct {
+	OrderSN string `json:"order_sn"`
+	Status  string `json:"status"`
+}
+
+type OrderStatusNotifyResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		OrderSN string `json:"order_sn"`
+		Status  string `json:"status"`
+	} `json:"data"`
+}
+
+type ShippingStatusNotifyResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		OrderSN       string `json:"order_sn"`
+		ShippingState string `json:"shipping_state"`
+	} `json:"data"`
+}

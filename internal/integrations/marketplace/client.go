@@ -34,6 +34,8 @@ type Client interface {
 	GetOrderDetail(accessToken, orderSN string) (*OrderDetailResponse, error)
 	ShipOrder(accessToken string, req ShipExternalOrderRequest) (*ShipExternalOrderResponse, error)
 	GetLogisticChannels(accessToken string) (*LogisticChannelsResponse, error)
+	NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatusNotifyResponse, error)
+	NotifyShippingStatus(req WebhookStatusNotifyRequest) (*ShippingStatusNotifyResponse, error)
 }
 
 type AuthorizeContext struct {
@@ -486,6 +488,104 @@ func (c *client) GetLogisticChannels(accessToken string) (*LogisticChannelsRespo
 		}
 
 		return &channelsResp, nil
+	}
+
+	return nil, lastErr
+}
+
+func (c *client) NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatusNotifyResponse, error) {
+	url := fmt.Sprintf("%s/webhook/order-status", c.baseURL)
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryCount; attempt++ {
+		httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyBytes))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Add("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			httpErr := buildHTTPError("notify order status", httpReq, resp)
+			resp.Body.Close()
+			lastErr = httpErr
+			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, httpErr
+		}
+
+		var out OrderStatusNotifyResponse
+		err = json.NewDecoder(resp.Body).Decode(&out)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		return &out, nil
+	}
+
+	return nil, lastErr
+}
+
+func (c *client) NotifyShippingStatus(req WebhookStatusNotifyRequest) (*ShippingStatusNotifyResponse, error) {
+	url := fmt.Sprintf("%s/webhook/shipping-status", c.baseURL)
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryCount; attempt++ {
+		httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyBytes))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Add("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			httpErr := buildHTTPError("notify shipping status", httpReq, resp)
+			resp.Body.Close()
+			lastErr = httpErr
+			if resp.StatusCode >= http.StatusInternalServerError && attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, httpErr
+		}
+
+		var out ShippingStatusNotifyResponse
+		err = json.NewDecoder(resp.Body).Decode(&out)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		return &out, nil
 	}
 
 	return nil, lastErr

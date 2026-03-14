@@ -20,6 +20,8 @@ type Service interface {
 	GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailResponse, error)
 	ShipOrder(shopID, orderSN, channelID string) (*ShipExternalOrderResponse, error)
 	GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsResponse, error)
+	NotifyOrderStatus(orderSN, status string) error
+	NotifyShippingStatus(orderSN, status string) error
 }
 
 type service struct {
@@ -228,6 +230,18 @@ func (s *service) GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsR
 	}
 
 	return resp, nil
+}
+
+func (s *service) NotifyOrderStatus(orderSN, status string) error {
+	req := WebhookStatusNotifyRequest{OrderSN: orderSN, Status: status}
+	_, err := s.client.NotifyOrderStatus(req)
+	return err
+}
+
+func (s *service) NotifyShippingStatus(orderSN, status string) error {
+	req := WebhookStatusNotifyRequest{OrderSN: orderSN, Status: status}
+	_, err := s.client.NotifyShippingStatus(req)
+	return err
 }
 
 func (s *service) getValidAccessToken(cred *MarketplaceCredential) (string, error) {

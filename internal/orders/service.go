@@ -233,6 +233,14 @@ func (s *service) ShipOrder(orderSN, channelID string) (*ShipOrderResponse, erro
 		return nil, errors.New("failed to save shipment info locally")
 	}
 
+	if err := s.mpSvc.NotifyShippingStatus(orderSN, shippingStatus); err != nil {
+		xlogger.Logger.Warn().Err(err).Str("order_sn", orderSN).Str("shipping_status", shippingStatus).Msg("Failed to notify marketplace shipping-status webhook")
+	}
+
+	if err := s.mpSvc.NotifyOrderStatus(orderSN, shippingStatus); err != nil {
+		xlogger.Logger.Warn().Err(err).Str("order_sn", orderSN).Str("status", shippingStatus).Msg("Failed to notify marketplace order-status webhook")
+	}
+
 	s.invalidateOrdersCache()
 
 	return &ShipOrderResponse{
