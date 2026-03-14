@@ -28,9 +28,9 @@ func NewService(repo Repository) Service {
 // Register creates a new user, hashing their password
 func (s *service) Register(req LoginRequest) error {
 	// Check if user already exists
-	_, err := s.repo.FindUserByUsername(req.Username)
+	_, err := s.repo.FindUserByEmail(req.Email)
 	if err == nil {
-		return errors.New("username already exists")
+		return errors.New("email already registered")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -39,7 +39,7 @@ func (s *service) Register(req LoginRequest) error {
 	}
 
 	user := &User{
-		Username:     req.Username,
+		Email:        req.Email,
 		PasswordHash: string(hashedPassword),
 	}
 
@@ -48,9 +48,9 @@ func (s *service) Register(req LoginRequest) error {
 
 // Login verifies credentials and returns a JWT
 func (s *service) Login(req LoginRequest) (*LoginResponse, error) {
-	user, err := s.repo.FindUserByUsername(req.Username)
+	user, err := s.repo.FindUserByEmail(req.Email)
 	if err != nil {
-		return nil, errors.New("invalid username or password")
+		return nil, errors.New("invalid email or password")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
@@ -71,9 +71,9 @@ func (s *service) GenerateToken(user *User) (string, error) {
 	secret := config.App.JWTSecret
 	
 	claims := jwt.MapClaims{
-		"user_id":  user.ID.String(),
-		"username": user.Username,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(), // 24 hours
+		"user_id": user.ID.String(),
+		"email":   user.Email,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(), // 24 hours
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

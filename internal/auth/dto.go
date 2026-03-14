@@ -2,7 +2,7 @@ package auth
 
 // LoginRequest represents the payload for the internal login endpoint
 type LoginRequest struct {
-	Username string `json:"username" validate:"required,min=4"`
+	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=6"`
 }
 

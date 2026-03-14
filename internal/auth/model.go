@@ -18,7 +18,7 @@ type BaseModel struct {
 // User represents an internal API user
 type User struct {
 	BaseModel
-	Username     string `gorm:"type:varchar(100);uniqueIndex;not null" json:"username"`
+	Email        string `gorm:"type:varchar(100);uniqueIndex;not null" json:"email"`
 	PasswordHash string `gorm:"type:varchar(255);not null" json:"-"`
 }
 

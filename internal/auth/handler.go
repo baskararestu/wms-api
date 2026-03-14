@@ -33,14 +33,14 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 
 	res, err := h.service.Login(*req)
 	if err != nil {
-		slog.Warn("Login failed", "username", req.Username, "error", err.Error())
+		slog.Warn("Login failed", "email", req.Email, "error", err.Error())
 		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrorResponse{
 			Code:    fiber.StatusUnauthorized,
 			Message: err.Error(),
 		})
 	}
 
-	slog.Info("User logged in successfully", "username", req.Username)
+	slog.Info("User logged in successfully", "email", req.Email)
 	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse{
 		Code:    fiber.StatusOK,
 		Message: "Login successful",
@@ -54,14 +54,14 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 
 	err := h.service.Register(*req)
 	if err != nil {
-		slog.Warn("Registration failed", "username", req.Username, "error", err.Error())
+		slog.Warn("Registration failed", "email", req.Email, "error", err.Error())
 		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
 			Code:    fiber.StatusBadRequest,
 			Message: err.Error(),
 		})
 	}
 
-	slog.Info("New user registered", "username", req.Username)
+	slog.Info("New user registered", "email", req.Email)
 	return c.Status(fiber.StatusCreated).JSON(response.SuccessResponse{
 		Code:    fiber.StatusCreated,
 		Message: "User registered successfully",
