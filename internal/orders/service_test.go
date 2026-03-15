@@ -58,9 +58,10 @@ func (m *mockMarketplaceSvc) NotifyShippingStatus(orderSN, status string) error 
 func TestShipOrder_Success(t *testing.T) {
 	repo := &mockOrderRepo{
 		findOrderBySNRtn: &Order{
-			OrderSN:   "SHP001",
-			ShopID:    "shop-1",
-			WMSStatus: WMSStatusPacked, // Step 1: Pre-condition
+			OrderSN:           "SHP001",
+			ShopID:            "shop-1",
+			WMSStatus:         WMSStatusPacked, // Step 1: Pre-condition
+			MarketplaceStatus: MPStatusPaid,    // actionable status
 		},
 	}
 
@@ -102,9 +103,10 @@ func TestShipOrder_Success(t *testing.T) {
 func TestShipOrder_FailsValidationIfNotPacked(t *testing.T) {
 	repo := &mockOrderRepo{
 		findOrderBySNRtn: &Order{
-			OrderSN:   "SHP001",
-			ShopID:    "shop-1",
-			WMSStatus: WMSStatusPicking, // Step 1: fails
+			OrderSN:           "SHP001",
+			ShopID:            "shop-1",
+			WMSStatus:         WMSStatusPicking, // Step 1: fails
+			MarketplaceStatus: MPStatusPaid,     // actionable, so error comes from wms_status check
 		},
 	}
 	mpSvc := &mockMarketplaceSvc{}
