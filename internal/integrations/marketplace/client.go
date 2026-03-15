@@ -581,6 +581,13 @@ func (c *client) NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatus
 		return nil, err
 	}
 
+	xlogger.Logger.Info().
+		Str("webhook", "order-status").
+		Str("url", url).
+		Str("order_sn", req.OrderSN).
+		Str("status", req.Status).
+		Msg("[Webhook] Dispatching order-status to marketplace")
+
 	var lastErr error
 	for attempt := 1; attempt <= maxRetryCount; attempt++ {
 		httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyBytes))
@@ -591,6 +598,12 @@ func (c *client) NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatus
 
 		resp, err := c.httpClient.Do(httpReq)
 		if err != nil {
+			xlogger.Logger.Error().
+				Str("webhook", "order-status").
+				Str("order_sn", req.OrderSN).
+				Int("attempt", attempt).
+				Err(err).
+				Msg("[Webhook] order-status HTTP request failed")
 			lastErr = err
 			if attempt < maxRetryCount {
 				time.Sleep(retryDelay)
@@ -603,6 +616,13 @@ func (c *client) NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatus
 			httpErr := buildHTTPError("notify order status", httpReq, resp)
 			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
+			xlogger.Logger.Warn().
+				Str("webhook", "order-status").
+				Str("order_sn", req.OrderSN).
+				Int("http_status", resp.StatusCode).
+				Int("attempt", attempt).
+				Err(httpErr).
+				Msg("[Webhook] order-status non-200 response from marketplace")
 			lastErr = httpErr
 			if shouldRetry {
 				time.Sleep(retryDelay)
@@ -618,6 +638,13 @@ func (c *client) NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatus
 			return nil, err
 		}
 
+		xlogger.Logger.Info().
+			Str("webhook", "order-status").
+			Str("order_sn", out.Data.OrderSN).
+			Str("status", out.Data.Status).
+			Int("http_status", resp.StatusCode).
+			Msg("[Webhook] order-status acknowledged by marketplace")
+
 		return &out, nil
 	}
 
@@ -631,6 +658,13 @@ func (c *client) NotifyShippingStatus(req WebhookStatusNotifyRequest) (*Shipping
 		return nil, err
 	}
 
+	xlogger.Logger.Info().
+		Str("webhook", "shipping-status").
+		Str("url", url).
+		Str("order_sn", req.OrderSN).
+		Str("status", req.Status).
+		Msg("[Webhook] Dispatching shipping-status to marketplace")
+
 	var lastErr error
 	for attempt := 1; attempt <= maxRetryCount; attempt++ {
 		httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyBytes))
@@ -641,6 +675,12 @@ func (c *client) NotifyShippingStatus(req WebhookStatusNotifyRequest) (*Shipping
 
 		resp, err := c.httpClient.Do(httpReq)
 		if err != nil {
+			xlogger.Logger.Error().
+				Str("webhook", "shipping-status").
+				Str("order_sn", req.OrderSN).
+				Int("attempt", attempt).
+				Err(err).
+				Msg("[Webhook] shipping-status HTTP request failed")
 			lastErr = err
 			if attempt < maxRetryCount {
 				time.Sleep(retryDelay)
@@ -653,6 +693,13 @@ func (c *client) NotifyShippingStatus(req WebhookStatusNotifyRequest) (*Shipping
 			httpErr := buildHTTPError("notify shipping status", httpReq, resp)
 			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
 			resp.Body.Close()
+			xlogger.Logger.Warn().
+				Str("webhook", "shipping-status").
+				Str("order_sn", req.OrderSN).
+				Int("http_status", resp.StatusCode).
+				Int("attempt", attempt).
+				Err(httpErr).
+				Msg("[Webhook] shipping-status non-200 response from marketplace")
 			lastErr = httpErr
 			if shouldRetry {
 				time.Sleep(retryDelay)
@@ -667,6 +714,13 @@ func (c *client) NotifyShippingStatus(req WebhookStatusNotifyRequest) (*Shipping
 		if err != nil {
 			return nil, err
 		}
+
+		xlogger.Logger.Info().
+			Str("webhook", "shipping-status").
+			Str("order_sn", out.Data.OrderSN).
+			Str("shipping_state", out.Data.ShippingState).
+			Int("http_status", resp.StatusCode).
+			Msg("[Webhook] shipping-status acknowledged by marketplace")
 
 		return &out, nil
 	}
