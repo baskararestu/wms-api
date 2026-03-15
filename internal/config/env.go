@@ -48,7 +48,7 @@ func LoadConfig() error {
 		JWTSecret:          getEnv("JWT_SECRET", "supersecretkey"),
 		DatabaseHost:       getEnvRequired("DB_HOST"),
 		DatabaseUser:       getEnvRequired("DB_USER"),
-		DatabasePassword:   getEnvRequired("DB_PASSWORD"),
+		DatabasePassword:   getEnv("DB_PASSWORD", ""),
 		DatabaseName:       getEnvRequired("DB_NAME"),
 		DatabasePort:       getEnvRequired("DB_PORT"),
 		MarketplaceBaseURL: getEnvRequired("MARKETPLACE_BASE_URL"),
