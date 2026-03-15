@@ -87,6 +87,7 @@ func main() {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status":  "ok",
 			"message": "WMS API is alive",
+			"uptime": time.Now().Format(time.RFC3339),
 		})
 	})
 
