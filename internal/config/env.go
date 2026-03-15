@@ -26,6 +26,7 @@ type Config struct {
 	RedisPassword      string
 	IsDevelopment      bool
 	RedirectURL        string
+	FrontendURL       string
 }
 
 // Global configuration instance
@@ -57,6 +58,7 @@ func LoadConfig() error {
 		RedisPort:          getEnv("REDIS_PORT", "6379"),
 		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
 		RedirectURL:        getEnv("REDIRECT_URL", "https://example.com/callback"),
+		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:5173"),
 	}
 
 	App.IsDevelopment = App.AppEnv != "production"

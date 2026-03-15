@@ -1,7 +1,6 @@
 package orders
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -41,20 +40,6 @@ func (s *service) GetOrders(query GetOrderListQuery) (*OrderListResponse, error)
 		}
 	}
 
-	// Try getting from cache first
-	cacheKey := s.generateCacheKey(query)
-	if redis.Client != nil {
-		cached, err := redis.Client.Get(redis.Ctx, cacheKey).Result()
-		if err == nil && cached != "" {
-			var resp OrderListResponse
-			if json.Unmarshal([]byte(cached), &resp) == nil {
-				xlogger.Logger.Debug().Str("cache_key", cacheKey).Msg("Orders retrieved from Redis cache hit")
-				return &resp, nil
-			}
-		}
-	}
-
-	// Cache Miss / Fallback
 	orders, total, err := s.repo.FindOrders(query)
 	if err != nil {
 		return nil, err
@@ -103,11 +88,6 @@ func (s *service) GetOrders(query GetOrderListQuery) (*OrderListResponse, error)
 			TotalOrdersCount:     totalMonth,
 			CancelledOrdersCount: cancelMonth,
 		},
-	}
-
-	if redis.Client != nil {
-		jsonData, _ := json.Marshal(resp)
-		redis.Client.Set(redis.Ctx, cacheKey, jsonData, 5*time.Minute)
 	}
 
 	return resp, nil
