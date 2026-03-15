@@ -39,6 +39,40 @@ We treat the Warehouse operation as a separate source of truth from the remote M
    - The API defends against invalid life-cycle steps (e.g., You cannot jump from "Ready to Pickup" to "Shipped").
    - WMS modifications never overwrite Marketplace fields and vice-versa.
 
+### Marketplace Status → WMS Handling
+
+Marketplace may return mixed statuses intentionally. The backend maps them into safe WMS behavior during sync:
+
+| Marketplace Status | Initial / Synced WMS Status | Allowed WMS Actions |
+| --- | --- | --- |
+| `processing` | `READY_TO_PICK` | Pick → Pack → Ship |
+| `paid` | `READY_TO_PICK` | Pick → Pack → Ship |
+| `shipping` | `SHIPPED` | None |
+| `delivered` | `SHIPPED` | None |
+| `cancelled` | `CANCELLED` | None |
+
+Rules enforced by the backend:
+
+- New orders from marketplace are normalized through a status-mapping step during sync.
+- Existing orders keep warehouse progress unless the marketplace has cancelled the order.
+- If marketplace cancels an order before it is shipped, WMS marks it as `CANCELLED` to stop warehouse processing.
+- `pick`, `pack`, and `ship` are only allowed for actionable marketplace states (`processing`, `paid`).
+
+### Ship Flow
+
+`POST /api/orders/:order_sn/ship` is the only place where shipment is finalized.
+
+Flow:
+
+1. Validate order exists and current `wms_status` is `PACKED`.
+2. Call marketplace logistic API to create shipment / tracking number.
+3. Persist `tracking_number`, `shipping_status`, `shipping_channel`, and final `wms_status=SHIPPED` in PostgreSQL.
+4. Trigger outbound marketplace webhooks from the backend:
+	- `POST /webhook/shipping-status`
+	- `POST /webhook/order-status`
+
+Frontend does **not** call marketplace webhook endpoints directly. The WMS backend owns that integration.
+
 ## 🔌 Marketplace Integration
 
 Emulates heavily-rate-limited external REST API flows (like Shopee/Tiktok platforms):
@@ -46,11 +80,30 @@ Emulates heavily-rate-limited external REST API flows (like Shopee/Tiktok platfo
 - **Oauth-like Connect Flow**: A one-step simulation connecting a shop: `Hit connect` 👉 `Fetch Token` 👉 `Fetch Shop Info` 👉 `Save Shop DB`.
 - **HMAC Signatures**: Includes cryptographic secure request signing to external endpoints.
 - **Resilience**: The native HTTP REST Client wraps network calls inside a custom Retry-Strategy handling `503` or timeout spikes automatically.
+- **Webhook Delivery**: Outbound webhook delivery is owned by the backend, with idempotency keys, in-flight locks, retry queueing, and delivery metrics.
+
+### Outbound Webhook Flow
+
+When an order is shipped successfully, the backend sends two outbound requests to the marketplace mock API:
+
+```text
+POST /api/orders/:order_sn/ship
+  ├── marketplace /logistic/ship
+  ├── marketplace /webhook/shipping-status
+  └── marketplace /webhook/order-status
+```
+
+Implementation notes:
+
+- Webhook dispatch happens inside `internal/orders/service.go` after shipment data is saved locally.
+- Retry and idempotency are managed inside `internal/integrations/marketplace/service.go`.
+- HTTP request / response details for webhook delivery are logged inside `internal/integrations/marketplace/client.go`.
 
 ### Connect Shop (One-Step)
 
 ```bash
 curl -X POST http://localhost:3000/api/integrations/marketplace/shops/connect/start \
+	-H 'Authorization: Bearer <access-token>' \
 	-H 'Content-Type: application/json' \
 	-d '{"shop_id":"shopee-123"}'
 ```
@@ -58,7 +111,8 @@ curl -X POST http://localhost:3000/api/integrations/marketplace/shops/connect/st
 ### Get Connected Shop Detail
 
 ```bash
-curl http://localhost:3000/api/integrations/marketplace/shops/shopee-123
+curl http://localhost:3000/api/integrations/marketplace/shops/shopee-123 \
+	-H 'Authorization: Bearer <access-token>'
 ```
 
 ## ⚠️ Error Handling
@@ -70,6 +124,25 @@ curl http://localhost:3000/api/integrations/marketplace/shops/shopee-123
   - `422 Unprocessable Entity` -> Invalid lifecycle jumps.
   - `500 Internal Server Error` -> Generic database failures.
 - **Log Masking**: Implements `ZeroLog` struct logging, preserving internal debug traits (like Go-side stack traces) strictly to standard output without leaking internal app secrets to the End-User payload response.
+
+## 🚦 Rate Limiting
+
+The API applies a global rate limiter at the Fiber middleware layer:
+
+- **Limit**: `10` requests per second
+- **Scope**: per client IP
+- **Response**: `429 Too Many Requests`
+
+Sample response:
+
+```json
+{
+	"code": 429,
+	"message": "Too many requests, please slow down"
+}
+```
+
+This is intended as a lightweight protection layer for staging / small-traffic environments, not as a full production traffic-shaping strategy.
 
 ---
 
@@ -143,11 +216,11 @@ To maintain velocity, tests are strictly divided:
 - **Integration Tests (`tests/integration`)**: Focus purely on `internal/repositories/` and database interactions. These require a live database connection.
 
 ```bash
-# Run Unit Tests
-go test ./tests/unit/...
+# Run domain unit tests
+go test ./internal/... -v
 
-# Run Integration Tests
-go test ./tests/integration/...
+# Run a focused package test
+go test ./internal/orders/... -v
 ```
 
 ## 🔐 Auth Flow (Hybrid Refresh Token)
@@ -190,6 +263,7 @@ Flow untuk technical test dibuat sederhana: backend melakukan authorize + token 
 
 ```bash
 curl -X POST http://localhost:3000/api/integrations/marketplace/shops/connect/start \
+	-H 'Authorization: Bearer <access-token>' \
 	-H 'Content-Type: application/json' \
 	-d '{"shop_id":"shopee-123"}'
 ```
@@ -197,5 +271,33 @@ curl -X POST http://localhost:3000/api/integrations/marketplace/shops/connect/st
 ### Get Connected Shop Detail
 
 ```bash
-curl http://localhost:3000/api/integrations/marketplace/shops/shopee-123
+curl http://localhost:3000/api/integrations/marketplace/shops/shopee-123 \
+	-H 'Authorization: Bearer <access-token>'
 ```
+
+## 📮 Common Order API Examples
+
+### Pick Order
+
+```bash
+curl -X POST http://localhost:3000/api/orders/SHP001/pick \
+	-H 'Authorization: Bearer <access-token>'
+```
+
+### Pack Order
+
+```bash
+curl -X POST http://localhost:3000/api/orders/SHP001/pack \
+	-H 'Authorization: Bearer <access-token>'
+```
+
+### Ship Order
+
+```bash
+curl -X POST http://localhost:3000/api/orders/SHP001/ship \
+	-H 'Authorization: Bearer <access-token>' \
+	-H 'Content-Type: application/json' \
+	-d '{"channel_id":"jne-reg"}'
+```
+
+Successful ship will also trigger backend-owned outbound webhook notifications to the marketplace mock.
