@@ -44,12 +44,12 @@ We treat the Warehouse operation as a separate source of truth from the remote M
 Marketplace may return mixed statuses intentionally. The backend maps them into safe WMS behavior during sync:
 
 | Marketplace Status | Initial / Synced WMS Status | Allowed WMS Actions |
-| --- | --- | --- |
-| `processing` | `READY_TO_PICK` | Pick → Pack → Ship |
-| `paid` | `READY_TO_PICK` | Pick → Pack → Ship |
-| `shipping` | `SHIPPED` | None |
-| `delivered` | `SHIPPED` | None |
-| `cancelled` | `CANCELLED` | None |
+| ------------------ | --------------------------- | ------------------- |
+| `processing`       | `READY_TO_PICK`             | Pick → Pack → Ship  |
+| `paid`             | `READY_TO_PICK`             | Pick → Pack → Ship  |
+| `shipping`         | `SHIPPED`                   | None                |
+| `delivered`        | `SHIPPED`                   | None                |
+| `cancelled`        | `CANCELLED`                 | None                |
 
 Rules enforced by the backend:
 
@@ -68,8 +68,8 @@ Flow:
 2. Call marketplace logistic API to create shipment / tracking number.
 3. Persist `tracking_number`, `shipping_status`, `shipping_channel`, and final `wms_status=SHIPPED` in PostgreSQL.
 4. Trigger outbound marketplace webhooks from the backend:
-	- `POST /webhook/shipping-status`
-	- `POST /webhook/order-status`
+   - `POST /webhook/shipping-status`
+   - `POST /webhook/order-status`
 
 Frontend does **not** call marketplace webhook endpoints directly. The WMS backend owns that integration.
 
@@ -137,8 +137,8 @@ Sample response:
 
 ```json
 {
-	"code": 429,
-	"message": "Too many requests, please slow down"
+  "code": 429,
+  "message": "Too many requests, please slow down"
 }
 ```
 
