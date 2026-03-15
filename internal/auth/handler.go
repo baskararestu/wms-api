@@ -19,7 +19,6 @@ func NewHandler(service Service) *Handler {
 
 // RegisterRoutes binds the handler methods to the Fiber router
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-	// Post /api/v1/auth/login
 	router.Post("/login", validation.New[LoginRequest](), h.Login)
 	router.Post("/refresh", validation.New[RefreshTokenRequest](), h.RefreshToken)
 	router.Post("/logout", validation.New[LogoutRequest](), h.Logout)
