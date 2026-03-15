@@ -30,4 +30,4 @@ services:
 
 networks:
   wms_net:
-    driver: bridge
+    external: true
