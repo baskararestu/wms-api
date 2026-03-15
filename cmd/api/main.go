@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	appInit "github.com/baskararestu/wms-api/internal/app"
 	"github.com/baskararestu/wms-api/internal/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/baskararestu/wms-api/internal/redis"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
@@ -55,6 +57,23 @@ func main() {
 
 	// Middleware
 	app.Use(recover.New())
+	app.Use(limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 1 * time.Second,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			xlogger.Logger.Warn().
+				Str("ip", c.IP()).
+				Str("path", c.Path()).
+				Msg("Rate limit exceeded")
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"code":    fiber.StatusTooManyRequests,
+				"message": "Too many requests, please slow down",
+			})
+		},
+	}))
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     strings.Join(uniqOrigins, ","),
