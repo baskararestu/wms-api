@@ -154,8 +154,12 @@ func (s *service) PickOrder(orderSN string) error {
 		return errors.New("order not found")
 	}
 
+	if !isActionableForWMS(order.MarketplaceStatus) {
+		return fmt.Errorf("order cannot be picked, marketplace status is: %s", order.MarketplaceStatus)
+	}
+
 	if order.WMSStatus != WMSStatusReadyToPickup {
-		return fmt.Errorf("order cannot be picked, current status: %s", order.WMSStatus)
+		return fmt.Errorf("order cannot be picked, current wms status: %s", order.WMSStatus)
 	}
 
 	err = s.repo.UpdateWMSStatusBySN(orderSN, WMSStatusPicking)
@@ -173,8 +177,12 @@ func (s *service) PackOrder(orderSN string) error {
 		return errors.New("order not found")
 	}
 
+	if !isActionableForWMS(order.MarketplaceStatus) {
+		return fmt.Errorf("order cannot be packed, marketplace status is: %s", order.MarketplaceStatus)
+	}
+
 	if order.WMSStatus != WMSStatusPicking {
-		return fmt.Errorf("order cannot be packed, current status: %s", order.WMSStatus)
+		return fmt.Errorf("order cannot be packed, current wms status: %s", order.WMSStatus)
 	}
 
 	err = s.repo.UpdateWMSStatusBySN(orderSN, WMSStatusPacked)
@@ -192,8 +200,12 @@ func (s *service) ShipOrder(orderSN, channelID string) (*ShipOrderResponse, erro
 		return nil, errors.New("order not found")
 	}
 
+	if !isActionableForWMS(order.MarketplaceStatus) {
+		return nil, fmt.Errorf("order cannot be shipped, marketplace status is: %s", order.MarketplaceStatus)
+	}
+
 	if order.WMSStatus != WMSStatusPacked {
-		return nil, fmt.Errorf("order cannot be shipped, current status: %s", order.WMSStatus)
+		return nil, fmt.Errorf("order cannot be shipped, current wms status: %s", order.WMSStatus)
 	}
 
 	// Call the external marketplace API to ship (generate tracking NO)
@@ -238,26 +250,26 @@ func (s *service) SyncMarketplaceOrders(shopID string) error {
 	r, err := s.mpSvc.GetOrderListByShopID(shopID)
 	if err != nil {
 		xlogger.Logger.Error().Err(err).Str("shop_id", shopID).Msg("Failed to call marketplace get order list")
-		// The error will be mapped to UI response
 		return err
 	}
 
-	for _, mpOrder := range r.Data {
-		var items []OrderItem
+	successCount := 0
+	failCount := 0
 
+	for _, mpOrder := range r.Data {
 		id := uuid.New()
 
+		var items []OrderItem
 		for _, mpItem := range mpOrder.Items {
 			items = append(items, OrderItem{
 				OrderID:  id,
 				SKU:      mpItem.SKU,
-				Name:     fmt.Sprintf("Product %s", mpItem.SKU), // API didn't provide name
+				Name:     fmt.Sprintf("Product %s", mpItem.SKU),
 				Quantity: mpItem.Quantity,
 				Price:    mpItem.Price,
 			})
 		}
 
-		// Parse created_at
 		var createdAt time.Time
 		if t, err := time.Parse(time.RFC3339, mpOrder.CreatedAt); err == nil {
 			createdAt = t
@@ -265,45 +277,70 @@ func (s *service) SyncMarketplaceOrders(shopID string) error {
 			createdAt = time.Now()
 		}
 
-		wmsStatus := WMSStatusReadyToPickup
+		existing, findErr := s.repo.FindOrderBySN(mpOrder.OrderSN)
 
-		order := &Order{
-			BaseModel: BaseModel{
-				ID:        id,
-				CreatedAt: createdAt,
-				UpdatedAt: time.Now(),
-			},
-			OrderSN:           mpOrder.OrderSN,
-			ShopID:            mpOrder.ShopID,
-			MarketplaceStatus: mpOrder.Status,
-			ShippingStatus:    mpOrder.ShippingStatus,
-			WMSStatus:         wmsStatus,
-			TrackingNumber:    mpOrder.TrackingNumber,
-			TotalAmount:       mpOrder.TotalAmount,
-		}
-
-		// Insert or Update the order. We rely on the raw Upsert we built.
-		// However we need to upsert items as well, so a basic find and replace is better, or a transaction
-		existing, err := s.repo.FindOrderBySN(mpOrder.OrderSN)
-		if err == nil && existing != nil {
-			// update existing
+		if findErr == nil && existing != nil {
+			// --- UPDATE existing order ---
+			// Always sync marketplace fields
 			existing.MarketplaceStatus = mpOrder.Status
 			existing.ShippingStatus = mpOrder.ShippingStatus
 			existing.TrackingNumber = mpOrder.TrackingNumber
 			existing.TotalAmount = mpOrder.TotalAmount
-			existing.Items = items
 			existing.UpdatedAt = time.Now()
 
-			_ = s.repo.UpsertOrder(existing)
+			// Re-resolve wms_status only if order is not yet in an active WMS workflow.
+			// Once a warehouse worker has started picking, we do NOT override their progress.
+			if existing.WMSStatus == WMSStatusReadyToPickup || existing.WMSStatus == WMSStatusCancelled {
+				existing.WMSStatus = resolveInitialWMSStatus(mpOrder.Status)
+			}
+			// If the marketplace cancels an order mid-workflow (e.g. during PICKING/PACKED),
+			// force-cancel it so workers don't waste time fulfilling it.
+			if mpOrder.Status == MPStatusCancelled && existing.WMSStatus != WMSStatusShipped {
+				existing.WMSStatus = WMSStatusCancelled
+			}
+
+			existing.Items = items
+
+			if err := s.repo.UpsertOrder(existing); err != nil {
+				xlogger.Logger.Error().Err(err).Str("order_sn", mpOrder.OrderSN).Msg("Failed to upsert existing order during sync")
+				failCount++
+				continue
+			}
 		} else {
-			// new record
-			order.Items = items
-			_ = s.repo.UpsertOrder(order)
+			// --- INSERT new order ---
+			order := &Order{
+				BaseModel: BaseModel{
+					ID:        id,
+					CreatedAt: createdAt,
+					UpdatedAt: time.Now(),
+				},
+				OrderSN:           mpOrder.OrderSN,
+				ShopID:            mpOrder.ShopID,
+				MarketplaceStatus: mpOrder.Status,
+				ShippingStatus:    mpOrder.ShippingStatus,
+				WMSStatus:         resolveInitialWMSStatus(mpOrder.Status),
+				TrackingNumber:    mpOrder.TrackingNumber,
+				TotalAmount:       mpOrder.TotalAmount,
+				Items:             items,
+			}
+
+			if err := s.repo.UpsertOrder(order); err != nil {
+				xlogger.Logger.Error().Err(err).Str("order_sn", mpOrder.OrderSN).Msg("Failed to insert new order during sync")
+				failCount++
+				continue
+			}
 		}
+
+		successCount++
 	}
 
 	s.invalidateOrdersCache()
-	xlogger.Logger.Info().Int("synced_count", len(r.Data)).Str("shop_id", shopID).Msg("Marketplace sync completed")
+	xlogger.Logger.Info().
+		Str("shop_id", shopID).
+		Int("total", len(r.Data)).
+		Int("success", successCount).
+		Int("failed", failCount).
+		Msg("Marketplace sync completed")
 	return nil
 }
 

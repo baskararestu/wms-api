@@ -133,7 +133,7 @@ func (r *repository) UpsertOrder(order *Order) error {
 		Columns: []clause.Column{{Name: "order_sn"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"marketplace_status", "shipping_status", "tracking_number",
-			"updated_at", "total_amount",
+			"updated_at", "total_amount", "wms_status",
 		}),
 	}).Create(order).Error
 }
