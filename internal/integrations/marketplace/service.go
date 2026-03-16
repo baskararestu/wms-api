@@ -11,12 +11,13 @@ import (
 
 	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
 	"github.com/baskararestu/wms-api/internal/redis"
+	usershops "github.com/baskararestu/wms-api/internal/user-shops"
 	goredis "github.com/redis/go-redis/v9"
 )
 
 // Service defines the orchestration logic for marketplace integrations
 type Service interface {
-	StartLinkShop(shopID string) (*LinkShopStartResponse, error)
+	StartLinkShop(userID string) (*LinkShopStartResponse, error) // shopID will be determined internally by handler
 	CompleteLinkShop(code, shopID, state string) error
 	GetShopDetailByShopID(shopID string) (*ShopDetailResponse, error)
 	GetOrderListByShopID(shopID string) (*OrderListResponse, error)
@@ -29,9 +30,10 @@ type Service interface {
 }
 
 type service struct {
-	client      Client
-	repo        Repository
-	redirectURL string
+	client       Client
+	repo         Repository
+	userShopRepo usershops.Repository
+	redirectURL  string
 
 	dispatchSuccess    atomic.Uint64
 	dispatchFailure    atomic.Uint64
@@ -68,16 +70,23 @@ type webhookRetryJob struct {
 }
 
 // NewService creates a new Marketplace Integration Service
-func NewService(client Client, repo Repository, redirectURL string) Service {
+func NewService(client Client, repo Repository, userShopRepo usershops.Repository, redirectURL string) Service {
 	return &service{
-		client:      client,
-		repo:        repo,
-		redirectURL: redirectURL,
+		client:       client,
+		repo:         repo,
+		userShopRepo: userShopRepo,
+		redirectURL:  redirectURL,
 	}
 }
 
-func (s *service) StartLinkShop(shopID string) (*LinkShopStartResponse, error) {
-	xlogger.Logger.Info().Str("shop_id", shopID).Msg("Starting one-step connect flow for shop")
+func (s *service) StartLinkShop(userID string) (*LinkShopStartResponse, error) {
+	xlogger.Logger.Info().Str("user_id", userID).Msg("Starting one-step connect flow for user")
+
+	shopID, err := s.userShopRepo.FindShopIDByUserID(userID)
+	if err != nil {
+		xlogger.Logger.Error().Str("user_id", userID).Err(err).Msg("Failed to lookup shop mapping for user")
+		return nil, errors.New("failed to lookup shops for user")
+	}
 
 	authResp, authorizeCtx, err := s.client.Authorize(shopID, s.redirectURL)
 	if err != nil {

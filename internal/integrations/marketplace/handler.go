@@ -6,7 +6,6 @@ import (
 
 	"github.com/baskararestu/wms-api/internal/pkg/middleware"
 	"github.com/baskararestu/wms-api/internal/pkg/response"
-	"github.com/baskararestu/wms-api/internal/pkg/validation"
 	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
 	"github.com/gofiber/fiber/v2"
 )
@@ -23,7 +22,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Get("/oauth/callback", h.OAuthCallback)
 
 	protected := router.Group("/", middleware.Protected())
-	protected.Post("/shops/connect/start", validation.New[LinkShopRequest](), h.StartLinkShop)
+	protected.Get("/shops/connect/start", h.StartLinkShop)
 	protected.Get("/shops/:shopID", h.GetShopDetail)
 	protected.Get("/shops/:shopID/logistic/channels", h.GetLogisticChannels)
 	protected.Get("/webhooks/metrics", h.GetWebhookMetrics)
@@ -43,11 +42,17 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 // @Failure 503 {object} response.ErrorResponse
 // @Router /api/integrations/marketplace/shops/connect/start [post]
 func (h *Handler) StartLinkShop(c *fiber.Ctx) error {
-	req := c.Locals("payload").(*LinkShopRequest)
+	userID := fmt.Sprint(c.Locals("user_id"))
+	if userID == "" || userID == "<nil>" {
+		return c.Status(fiber.StatusUnauthorized).JSON(response.ErrorResponse{
+			Code:    fiber.StatusUnauthorized,
+			Message: "User ID not found in token",
+		})
+	}
 
-	res, err := h.service.StartLinkShop(req.ShopID)
+	res, err := h.service.StartLinkShop(userID)
 	if err != nil {
-		xlogger.Logger.Warn().Str("shop_id", req.ShopID).Err(err).Msg("Failed to start link shop")
+		xlogger.Logger.Warn().Err(err).Msg("Failed to start link shop")
 		if errors.Is(err, ErrMarketplaceUnavailable) {
 			return c.Status(fiber.StatusServiceUnavailable).JSON(response.ErrorResponse{
 				Code:    fiber.StatusServiceUnavailable,

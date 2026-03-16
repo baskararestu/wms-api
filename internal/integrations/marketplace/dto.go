@@ -1,10 +1,5 @@
 package marketplace
 
-// LinkShopRequest represents the incoming payload from the frontend to initiate OAuth
-type LinkShopRequest struct {
-	ShopID string `json:"shop_id" validate:"required"`
-}
-
 // OAuthCallbackRequest represents query payload for OAuth callback completion
 type OAuthCallbackRequest struct {
 	Code   string `query:"code" validate:"required"`

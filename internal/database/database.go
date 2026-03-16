@@ -9,6 +9,7 @@ import (
 	"github.com/baskararestu/wms-api/internal/integrations/marketplace"
 	"github.com/baskararestu/wms-api/internal/orders"
 	"github.com/baskararestu/wms-api/internal/pkg/xlogger"
+	usershops "github.com/baskararestu/wms-api/internal/user-shops"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -53,6 +54,7 @@ func ConnectDB() {
 	err = DB.AutoMigrate(
 		&auth.User{},
 		&auth.RefreshToken{},
+		&usershops.UserShop{},
 		&marketplace.MarketplaceCredential{},
 		&orders.Order{},
 		&orders.OrderItem{},
