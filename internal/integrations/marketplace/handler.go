@@ -29,6 +29,19 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	protected.Get("/webhooks/metrics", h.GetWebhookMetrics)
 }
 
+// StartLinkShop godoc
+// @Summary Connect marketplace shop
+// @Description Start the one-step marketplace shop linking flow and persist credentials.
+// @Tags Marketplace
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body LinkShopRequest true "Marketplace shop payload"
+// @Success 200 {object} response.SuccessResponse{data=LinkShopStartResponse}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 503 {object} response.ErrorResponse
+// @Router /api/integrations/marketplace/shops/connect/start [post]
 func (h *Handler) StartLinkShop(c *fiber.Ctx) error {
 	req := c.Locals("payload").(*LinkShopRequest)
 
@@ -54,6 +67,17 @@ func (h *Handler) StartLinkShop(c *fiber.Ctx) error {
 	})
 }
 
+// OAuthCallback godoc
+// @Summary Complete OAuth callback
+// @Description Complete marketplace OAuth callback using code, shop ID, and state query parameters.
+// @Tags Marketplace
+// @Produce json
+// @Param code query string true "Authorization code"
+// @Param shop_id query string true "Marketplace shop ID"
+// @Param state query string true "OAuth state"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Router /api/integrations/marketplace/oauth/callback [get]
 func (h *Handler) OAuthCallback(c *fiber.Ctx) error {
 	code := c.Query("code")
 	shopID := c.Query("shop_id")
@@ -81,6 +105,19 @@ func (h *Handler) OAuthCallback(c *fiber.Ctx) error {
 	})
 }
 
+// GetShopDetail godoc
+// @Summary Get connected shop detail
+// @Description Retrieve marketplace shop metadata for a connected shop.
+// @Tags Marketplace
+// @Security BearerAuth
+// @Produce json
+// @Param shopID path string true "Marketplace shop ID"
+// @Success 200 {object} response.SuccessResponse{data=ShopDetailResponse}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 503 {object} response.ErrorResponse
+// @Router /api/integrations/marketplace/shops/{shopID} [get]
 func (h *Handler) GetShopDetail(c *fiber.Ctx) error {
 	shopID := c.Params("shopID")
 	if shopID == "" {
@@ -118,6 +155,19 @@ func (h *Handler) GetShopDetail(c *fiber.Ctx) error {
 	})
 }
 
+// GetLogisticChannels godoc
+// @Summary Get logistic channels
+// @Description Fetch available logistic channels for a connected marketplace shop.
+// @Tags Marketplace
+// @Security BearerAuth
+// @Produce json
+// @Param shopID path string true "Marketplace shop ID"
+// @Success 200 {object} LogisticChannelsResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 503 {object} response.ErrorResponse
+// @Router /api/integrations/marketplace/shops/{shopID}/logistic/channels [get]
 func (h *Handler) GetLogisticChannels(c *fiber.Ctx) error {
 	shopID := c.Params("shopID")
 	if shopID == "" {
@@ -152,6 +202,15 @@ func (h *Handler) GetLogisticChannels(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(channels)
 }
 
+// GetWebhookMetrics godoc
+// @Summary Get webhook delivery metrics
+// @Description Retrieve current outbound webhook delivery counters and retry stats.
+// @Tags Marketplace
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} response.SuccessResponse{data=WebhookDeliveryMetrics}
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/integrations/marketplace/webhooks/metrics [get]
 func (h *Handler) GetWebhookMetrics(c *fiber.Ctx) error {
 	metrics := h.service.GetWebhookDeliveryMetrics()
 

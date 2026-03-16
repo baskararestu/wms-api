@@ -144,6 +144,30 @@ Sample response:
 
 This is intended as a lightweight protection layer for staging / small-traffic environments, not as a full production traffic-shaping strategy.
 
+## 📘 Swagger API Docs
+
+Swagger UI is now exposed by the API at:
+
+```text
+http://localhost:3000/api/docs
+```
+
+What is documented:
+
+- Auth endpoints under `/api/auth`
+- Order management endpoints under `/api/orders`
+- Marketplace integration endpoints under `/api/integrations/marketplace`
+- Health check endpoint at `/health`
+
+If you change handlers, request DTOs, or response models, regenerate the spec with:
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+swag init -g cmd/api/main.go -o docs
+```
+
+Generated files live in the `docs/` directory and are loaded automatically by `cmd/api/main.go`.
+
 ---
 
 ## 📁 Folder Structure

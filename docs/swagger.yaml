@@ -1,0 +1,856 @@
+basePath: /
+definitions:
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  auth.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  auth.LogoutRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  auth.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  main.HealthResponse:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  marketplace.LinkShopRequest:
+    properties:
+      shop_id:
+        type: string
+    required:
+    - shop_id
+    type: object
+  marketplace.LinkShopStartResponse:
+    properties:
+      connected:
+        type: boolean
+      shop_id:
+        type: string
+    type: object
+  marketplace.LogisticChannelDTO:
+    properties:
+      code:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  marketplace.LogisticChannelsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/marketplace.LogisticChannelDTO'
+        type: array
+      message:
+        type: string
+    type: object
+  marketplace.ShopDetailResponse:
+    properties:
+      data:
+        properties:
+          access_level:
+            type: string
+          country:
+            type: string
+          currency:
+            type: string
+          marketplace:
+            type: string
+          shop_id:
+            type: string
+          shop_name:
+            type: string
+        type: object
+      message:
+        type: string
+    type: object
+  marketplace.WebhookDeliveryMetrics:
+    properties:
+      dispatch_failure:
+        type: integer
+      dispatch_success:
+        type: integer
+      idempotency_skipped:
+        type: integer
+      inflight_skipped:
+        type: integer
+      last_error_sample:
+        type: string
+      last_retry_run_at:
+        type: string
+      pending_retry:
+        type: integer
+      retry_dropped:
+        type: integer
+      retry_failure:
+        type: integer
+      retry_queued:
+        type: integer
+      retry_success:
+        type: integer
+    type: object
+  orders.OrderDetailItem:
+    properties:
+      price:
+        type: number
+      qty:
+        type: integer
+      sku:
+        type: string
+    type: object
+  orders.OrderDetailResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/orders.OrderDetailItem'
+        type: array
+      marketplace_status:
+        type: string
+      order_sn:
+        type: string
+      shipping_status:
+        type: string
+      total_amount:
+        type: number
+      tracking_number:
+        type: string
+      updated_at:
+        type: string
+      wms_status:
+        type: string
+    type: object
+  orders.OrderListItem:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      marketplace_status:
+        type: string
+      order_sn:
+        type: string
+      shipping_status:
+        type: string
+      tracking_number:
+        type: string
+      updated_at:
+        type: string
+      wms_status:
+        type: string
+    type: object
+  orders.OrderListResponse:
+    properties:
+      limit:
+        type: integer
+      orders:
+        items:
+          $ref: '#/definitions/orders.OrderListItem'
+        type: array
+      page:
+        type: integer
+      summary_stats:
+        $ref: '#/definitions/orders.OrderSummaryStats'
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  orders.OrderSummaryStats:
+    properties:
+      cancelled_orders_count:
+        type: integer
+      total_orders_count:
+        type: integer
+    type: object
+  orders.ShipOrderRequest:
+    properties:
+      channel_id:
+        type: string
+    required:
+    - channel_id
+    type: object
+  orders.ShipOrderResponse:
+    properties:
+      order_sn:
+        type: string
+      shipping_channel:
+        type: string
+      shipping_status:
+        type: string
+      tracking_number:
+        type: string
+      wms_status:
+        type: string
+    type: object
+  orders.SyncOrdersRequest:
+    properties:
+      shop_id:
+        type: string
+    required:
+    - shop_id
+    type: object
+  orders.UpdateWMSStatusRequest:
+    properties:
+      wms_status:
+        enum:
+        - PICKING
+        - PACKED
+        - SHIPPED
+        type: string
+    required:
+    - wms_status
+    type: object
+  response.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      errors:
+        description: For validation errors
+        items:
+          type: string
+        type: array
+      message:
+        type: string
+    type: object
+  response.SuccessResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Warehouse Management System API for authentication, order processing,
+    and marketplace integrations.
+  title: WMS API
+  version: "1.0"
+paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate an internal user and return access and refresh tokens.
+      parameters:
+      - description: Login payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.LoginResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Login user
+      tags:
+      - Auth
+  /api/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revoke a refresh token session.
+      parameters:
+      - description: Logout payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Logout user
+      tags:
+      - Auth
+  /api/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a valid refresh token for a new access token pair.
+      parameters:
+      - description: Refresh token payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.LoginResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - Auth
+  /api/integrations/marketplace/oauth/callback:
+    get:
+      description: Complete marketplace OAuth callback using code, shop ID, and state
+        query parameters.
+      parameters:
+      - description: Authorization code
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: Marketplace shop ID
+        in: query
+        name: shop_id
+        required: true
+        type: string
+      - description: OAuth state
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Complete OAuth callback
+      tags:
+      - Marketplace
+  /api/integrations/marketplace/shops/{shopID}:
+    get:
+      description: Retrieve marketplace shop metadata for a connected shop.
+      parameters:
+      - description: Marketplace shop ID
+        in: path
+        name: shopID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/marketplace.ShopDetailResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get connected shop detail
+      tags:
+      - Marketplace
+  /api/integrations/marketplace/shops/{shopID}/logistic/channels:
+    get:
+      description: Fetch available logistic channels for a connected marketplace shop.
+      parameters:
+      - description: Marketplace shop ID
+        in: path
+        name: shopID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/marketplace.LogisticChannelsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get logistic channels
+      tags:
+      - Marketplace
+  /api/integrations/marketplace/shops/connect/start:
+    post:
+      consumes:
+      - application/json
+      description: Start the one-step marketplace shop linking flow and persist credentials.
+      parameters:
+      - description: Marketplace shop payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/marketplace.LinkShopRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/marketplace.LinkShopStartResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Connect marketplace shop
+      tags:
+      - Marketplace
+  /api/integrations/marketplace/webhooks/metrics:
+    get:
+      description: Retrieve current outbound webhook delivery counters and retry stats.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/marketplace.WebhookDeliveryMetrics'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get webhook delivery metrics
+      tags:
+      - Marketplace
+  /api/orders/:
+    get:
+      description: Get paginated orders with optional WMS, marketplace, shipping,
+        shop, and since filters.
+      parameters:
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Field to sort by
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort direction
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_dir
+        type: string
+      - description: Search term
+        in: query
+        name: search
+        type: string
+      - description: WMS status
+        in: query
+        name: wms_status
+        type: string
+      - description: Marketplace status
+        in: query
+        name: marketplace_status
+        type: string
+      - description: Shipping status
+        in: query
+        name: shipping_status
+        type: string
+      - description: Marketplace shop ID
+        in: query
+        name: shop_id
+        type: string
+      - description: Updated since timestamp
+        in: query
+        name: since
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/orders.OrderListResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List orders
+      tags:
+      - Orders
+  /api/orders/{id}/wms-status:
+    patch:
+      consumes:
+      - application/json
+      description: Manually update the WMS status for an order by internal UUID.
+      parameters:
+      - description: Internal order UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: WMS status payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/orders.UpdateWMSStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update WMS status
+      tags:
+      - Orders
+  /api/orders/{order_sn}:
+    get:
+      description: Retrieve a single order by marketplace order serial number.
+      parameters:
+      - description: Marketplace order serial number
+        in: path
+        name: order_sn
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/orders.OrderDetailResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get order detail
+      tags:
+      - Orders
+  /api/orders/{order_sn}/pack:
+    post:
+      description: Move an order from picking into packed.
+      parameters:
+      - description: Marketplace order serial number
+        in: path
+        name: order_sn
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Pack order
+      tags:
+      - Orders
+  /api/orders/{order_sn}/pick:
+    post:
+      description: Move an order from ready-to-pick into picking.
+      parameters:
+      - description: Marketplace order serial number
+        in: path
+        name: order_sn
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Pick order
+      tags:
+      - Orders
+  /api/orders/{order_sn}/ship:
+    post:
+      consumes:
+      - application/json
+      description: Finalize shipping, request tracking data from marketplace, and
+        trigger outbound webhooks.
+      parameters:
+      - description: Marketplace order serial number
+        in: path
+        name: order_sn
+        required: true
+        type: string
+      - description: Shipping payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/orders.ShipOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/orders.ShipOrderResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Ship order
+      tags:
+      - Orders
+  /api/orders/sync:
+    post:
+      consumes:
+      - application/json
+      description: Pull orders from the connected marketplace shop and upsert them
+        into WMS.
+      parameters:
+      - description: Sync payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/orders.SyncOrdersRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Sync marketplace orders
+      tags:
+      - Orders
+  /health:
+    get:
+      description: Returns the current API health status.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.HealthResponse'
+      summary: Health check
+      tags:
+      - System
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Use the format `Bearer <access-token>`.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

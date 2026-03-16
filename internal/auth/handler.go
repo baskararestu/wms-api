@@ -25,6 +25,17 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 
 // Login handles the user authentication and token generation
+// Login godoc
+// @Summary Login user
+// @Description Authenticate an internal user and return access and refresh tokens.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login payload"
+// @Success 200 {object} response.SuccessResponse{data=LoginResponse}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/auth/login [post]
 func (h *Handler) Login(c *fiber.Ctx) error {
 	// The validation middleware safely injected our strongly-typed struct
 	req := c.Locals("payload").(*LoginRequest)
@@ -47,6 +58,17 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 }
 
 // RefreshToken handles access token renewal using a refresh token
+// RefreshToken godoc
+// @Summary Refresh access token
+// @Description Exchange a valid refresh token for a new access token pair.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body RefreshTokenRequest true "Refresh token payload"
+// @Success 200 {object} response.SuccessResponse{data=LoginResponse}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/auth/refresh [post]
 func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 	req := c.Locals("payload").(*RefreshTokenRequest)
 
@@ -67,6 +89,17 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 }
 
 // Logout invalidates a refresh token session
+// Logout godoc
+// @Summary Logout user
+// @Description Revoke a refresh token session.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body LogoutRequest true "Logout payload"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/auth/logout [post]
 func (h *Handler) Logout(c *fiber.Ctx) error {
 	req := c.Locals("payload").(*LogoutRequest)
 

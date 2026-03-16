@@ -31,6 +31,27 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	protected.Post("/sync", validation.New[SyncOrdersRequest](), h.SyncOrders)
 }
 
+// GetOrders godoc
+// @Summary List orders
+// @Description Get paginated orders with optional WMS, marketplace, shipping, shop, and since filters.
+// @Tags Orders
+// @Security BearerAuth
+// @Produce json
+// @Param page query int false "Page number" minimum(1)
+// @Param limit query int false "Items per page" minimum(1) maximum(100)
+// @Param sort_by query string false "Field to sort by"
+// @Param sort_dir query string false "Sort direction" Enums(asc,desc)
+// @Param search query string false "Search term"
+// @Param wms_status query string false "WMS status"
+// @Param marketplace_status query string false "Marketplace status"
+// @Param shipping_status query string false "Shipping status"
+// @Param shop_id query string false "Marketplace shop ID"
+// @Param since query string false "Updated since timestamp"
+// @Success 200 {object} response.SuccessResponse{data=OrderListResponse}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/orders/ [get]
 func (h *Handler) GetOrders(c *fiber.Ctx) error {
 	var query GetOrderListQuery
 	if err := c.QueryParser(&query); err != nil {
@@ -63,6 +84,18 @@ func (h *Handler) GetOrders(c *fiber.Ctx) error {
 	})
 }
 
+// GetOrderDetail godoc
+// @Summary Get order detail
+// @Description Retrieve a single order by marketplace order serial number.
+// @Tags Orders
+// @Security BearerAuth
+// @Produce json
+// @Param order_sn path string true "Marketplace order serial number"
+// @Success 200 {object} response.SuccessResponse{data=OrderDetailResponse}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Router /api/orders/{order_sn} [get]
 func (h *Handler) GetOrderDetail(c *fiber.Ctx) error {
 	orderSN := c.Params("order_sn")
 	if orderSN == "" {
@@ -88,6 +121,19 @@ func (h *Handler) GetOrderDetail(c *fiber.Ctx) error {
 	})
 }
 
+// UpdateWMSStatus godoc
+// @Summary Update WMS status
+// @Description Manually update the WMS status for an order by internal UUID.
+// @Tags Orders
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Internal order UUID"
+// @Param request body UpdateWMSStatusRequest true "WMS status payload"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/orders/{id}/wms-status [patch]
 func (h *Handler) UpdateWMSStatus(c *fiber.Ctx) error {
 	idVal := c.Params("id")
 	orderID, err := uuid.Parse(idVal)
@@ -114,6 +160,17 @@ func (h *Handler) UpdateWMSStatus(c *fiber.Ctx) error {
 	})
 }
 
+// PickOrder godoc
+// @Summary Pick order
+// @Description Move an order from ready-to-pick into picking.
+// @Tags Orders
+// @Security BearerAuth
+// @Produce json
+// @Param order_sn path string true "Marketplace order serial number"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/orders/{order_sn}/pick [post]
 func (h *Handler) PickOrder(c *fiber.Ctx) error {
 	orderSN := c.Params("order_sn")
 	if orderSN == "" {
@@ -138,6 +195,17 @@ func (h *Handler) PickOrder(c *fiber.Ctx) error {
 	})
 }
 
+// PackOrder godoc
+// @Summary Pack order
+// @Description Move an order from picking into packed.
+// @Tags Orders
+// @Security BearerAuth
+// @Produce json
+// @Param order_sn path string true "Marketplace order serial number"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/orders/{order_sn}/pack [post]
 func (h *Handler) PackOrder(c *fiber.Ctx) error {
 	orderSN := c.Params("order_sn")
 	if orderSN == "" {
@@ -162,6 +230,19 @@ func (h *Handler) PackOrder(c *fiber.Ctx) error {
 	})
 }
 
+// ShipOrder godoc
+// @Summary Ship order
+// @Description Finalize shipping, request tracking data from marketplace, and trigger outbound webhooks.
+// @Tags Orders
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param order_sn path string true "Marketplace order serial number"
+// @Param request body ShipOrderRequest true "Shipping payload"
+// @Success 200 {object} response.SuccessResponse{data=ShipOrderResponse}
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/orders/{order_sn}/ship [post]
 func (h *Handler) ShipOrder(c *fiber.Ctx) error {
 	orderSN := c.Params("order_sn")
 	if orderSN == "" {
@@ -189,6 +270,19 @@ func (h *Handler) ShipOrder(c *fiber.Ctx) error {
 	})
 }
 
+// SyncOrders godoc
+// @Summary Sync marketplace orders
+// @Description Pull orders from the connected marketplace shop and upsert them into WMS.
+// @Tags Orders
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body SyncOrdersRequest true "Sync payload"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/orders/sync [post]
 func (h *Handler) SyncOrders(c *fiber.Ctx) error {
 	req := c.Locals("payload").(*SyncOrdersRequest)
 

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/baskararestu/wms-api/docs"
 	appInit "github.com/baskararestu/wms-api/internal/app"
 	"github.com/baskararestu/wms-api/internal/config"
 	"github.com/baskararestu/wms-api/internal/database"
@@ -14,7 +15,39 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	swagger "github.com/gofiber/swagger"
 )
+
+// @title WMS API
+// @version 1.0
+// @description Warehouse Management System API for authentication, order processing, and marketplace integrations.
+// @BasePath /
+// @schemes http https
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Use the format `Bearer <access-token>`.
+
+type HealthResponse struct {
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	Timestamp string `json:"timestamp"`
+}
+
+// healthCheck godoc
+// @Summary Health check
+// @Description Returns the current API health status.
+// @Tags System
+// @Produce json
+// @Success 200 {object} HealthResponse
+// @Router /health [get]
+func healthCheck(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusOK).JSON(HealthResponse{
+		Status:    "ok",
+		Message:   "WMS API is alive",
+		Timestamp: time.Now().Format(time.RFC3339),
+	})
+}
 
 func main() {
 	// Initialize Config, DB, and Redis
@@ -82,14 +115,10 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+	app.Get("/api/docs/*", swagger.HandlerDefault)
+
 	// Health Check
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status":  "ok",
-			"message": "WMS API is alive",
-			"uptime": time.Now().Format(time.RFC3339),
-		})
-	})
+	app.Get("/health", healthCheck)
 
 	// Wire and Run Domain modules
 	appInit.Run(app, database.DB)
