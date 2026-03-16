@@ -35,12 +35,11 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param request body LinkShopRequest true "Marketplace shop payload"
 // @Success 200 {object} response.SuccessResponse{data=LinkShopStartResponse}
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Failure 503 {object} response.ErrorResponse
-// @Router /api/integrations/marketplace/shops/connect/start [post]
+// @Router /api/integrations/marketplace/shops/connect/start [get]
 func (h *Handler) StartLinkShop(c *fiber.Ctx) error {
 	userID := fmt.Sprint(c.Locals("user_id"))
 	if userID == "" || userID == "<nil>" {
