@@ -95,18 +95,13 @@ func (r *repository) FindOrderSummaryStats() (int64, int64, error) {
 	var totalOrders int64
 	var cancelledOrders int64
 
-	// Based on UI screenshot "this month" requirement, but for simplicity we get overall or current month
-	// Lets do current month for accuracy
-	now := time.Now()
-	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-
-	err := r.db.Model(&Order{}).Where("created_at >= ?", startOfMonth).Count(&totalOrders).Error
+	err := r.db.Model(&Order{}).Count(&totalOrders).Error
 	if err != nil {
 		return 0, 0, err
 	}
 
 	err = r.db.Model(&Order{}).
-		Where("created_at >= ? AND (marketplace_status ILIKE '%cancel%' OR shipping_status ILIKE '%cancel%')", startOfMonth).
+		Where("marketplace_status = ? OR wms_status = ? OR shipping_status ILIKE ?", MPStatusCancelled, WMSStatusCancelled, "%cancel%").
 		Count(&cancelledOrders).Error
 	if err != nil {
 		return 0, 0, err
