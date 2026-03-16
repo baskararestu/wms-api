@@ -102,10 +102,8 @@ Implementation notes:
 ### Connect Shop (One-Step)
 
 ```bash
-curl -X POST http://localhost:3000/api/integrations/marketplace/shops/connect/start \
-	-H 'Authorization: Bearer <access-token>' \
-	-H 'Content-Type: application/json' \
-	-d '{"shop_id":"shopee-123"}'
+curl http://localhost:3000/api/integrations/marketplace/shops/connect/start \
+	-H 'Authorization: Bearer <access-token>'
 ```
 
 ### Get Connected Shop Detail
@@ -162,8 +160,7 @@ What is documented:
 If you change handlers, request DTOs, or response models, regenerate the spec with:
 
 ```bash
-go install github.com/swaggo/swag/cmd/swag@latest
-swag init -g cmd/api/main.go -o docs
+make swagger
 ```
 
 Generated files live in the `docs/` directory and are loaded automatically by `cmd/api/main.go`.
@@ -281,15 +278,13 @@ curl -X POST http://localhost:3000/api/auth/logout \
 
 ## 🔌 Marketplace Integration (Minimal Test Scope)
 
-Flow untuk technical test dibuat sederhana: backend melakukan authorize + token exchange + save credential dalam satu endpoint.
+Flow untuk technical test dibuat sederhana: backend melakukan authorize + token exchange + save credential dalam satu endpoint. Frontend tidak perlu lagi mengirim `shop_id` saat connect; backend mengambil shop mapping dari user yang login.
 
 ### Connect Shop (One-Step)
 
 ```bash
-curl -X POST http://localhost:3000/api/integrations/marketplace/shops/connect/start \
-	-H 'Authorization: Bearer <access-token>' \
-	-H 'Content-Type: application/json' \
-	-d '{"shop_id":"shopee-123"}'
+curl http://localhost:3000/api/integrations/marketplace/shops/connect/start \
+	-H 'Authorization: Bearer <access-token>'
 ```
 
 ### Get Connected Shop Detail
@@ -325,3 +320,25 @@ curl -X POST http://localhost:3000/api/orders/SHP001/ship \
 ```
 
 Successful ship will also trigger backend-owned outbound webhook notifications to the marketplace mock.
+
+### Cancel Order
+
+```bash
+curl -X POST http://localhost:3000/api/orders/cancel \
+	-H 'Authorization: Bearer <access-token>' \
+	-H 'Content-Type: application/json' \
+	-d '{"order_sn":"SHP001"}'
+```
+
+Response mengikuti marketplace response secara langsung:
+
+```json
+{
+  "message": "Order cancelled",
+  "data": {
+    "order_sn": "SHP001",
+    "status": "cancelled",
+    "shipping_status": "cancelled"
+  }
+}
+```
