@@ -227,7 +227,7 @@ const docTemplate = `{
             }
         },
         "/api/integrations/marketplace/shops/connect/start": {
-            "post": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -244,17 +244,6 @@ const docTemplate = `{
                     "Marketplace"
                 ],
                 "summary": "Connect marketplace shop",
-                "parameters": [
-                    {
-                        "description": "Marketplace shop payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/marketplace.LinkShopRequest"
-                        }
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1012,17 +1001,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "timestamp": {
-                    "type": "string"
-                }
-            }
-        },
-        "marketplace.LinkShopRequest": {
-            "type": "object",
-            "required": [
-                "shop_id"
-            ],
-            "properties": {
-                "shop_id": {
                     "type": "string"
                 }
             }

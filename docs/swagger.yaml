@@ -41,13 +41,6 @@ definitions:
       timestamp:
         type: string
     type: object
-  marketplace.LinkShopRequest:
-    properties:
-      shop_id:
-        type: string
-    required:
-    - shop_id
-    type: object
   marketplace.LinkShopStartResponse:
     properties:
       connected:
@@ -474,17 +467,10 @@ paths:
       tags:
       - Marketplace
   /api/integrations/marketplace/shops/connect/start:
-    post:
+    get:
       consumes:
       - application/json
       description: Start the one-step marketplace shop linking flow and persist credentials.
-      parameters:
-      - description: Marketplace shop payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/marketplace.LinkShopRequest'
       produces:
       - application/json
       responses:
