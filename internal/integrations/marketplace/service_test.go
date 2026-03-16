@@ -23,6 +23,7 @@ type mockMarketplaceClient struct {
 	authResp     *AuthCodeResponse
 	tokenResp    *TokenResponse
 	shopResp     *ShopDetailResponse
+	cancelResp   *CancelOrderResponse
 	authorizeErr error
 	getTokenErr  error
 	refreshErr   error
@@ -65,6 +66,13 @@ func (m *mockMarketplaceClient) GetOrderList(_ string) (*OrderListResponse, erro
 
 func (m *mockMarketplaceClient) GetOrderDetail(_, _ string) (*OrderDetailResponse, error) {
 	return nil, nil // not tested here
+}
+
+func (m *mockMarketplaceClient) CancelOrder(_ string, _ CancelOrderRequest) (*CancelOrderResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.cancelResp, nil
 }
 
 func (m *mockMarketplaceClient) ShipOrder(accessToken string, req ShipExternalOrderRequest) (*ShipExternalOrderResponse, error) {

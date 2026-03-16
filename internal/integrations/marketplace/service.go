@@ -22,6 +22,7 @@ type Service interface {
 	GetShopDetailByShopID(shopID string) (*ShopDetailResponse, error)
 	GetOrderListByShopID(shopID string) (*OrderListResponse, error)
 	GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailResponse, error)
+	CancelOrder(shopID, orderSN string) (*CancelOrderResponse, error)
 	ShipOrder(shopID, orderSN, channelID string) (*ShipExternalOrderResponse, error)
 	GetLogisticChannelsByShopID(shopID string) (*LogisticChannelsResponse, error)
 	NotifyOrderStatus(orderSN, status string) error
@@ -243,6 +244,33 @@ func (s *service) GetOrderDetailByShopID(shopID, orderSN string) (*OrderDetailRe
 				return nil, refreshErr
 			}
 			return s.client.GetOrderDetail(refreshedToken, orderSN)
+		}
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (s *service) CancelOrder(shopID, orderSN string) (*CancelOrderResponse, error) {
+	cred, err := s.repo.FindMarketplaceCredentialByShopID(shopID)
+	if err != nil {
+		return nil, ErrShopNotConnected
+	}
+
+	accessToken, err := s.getValidAccessToken(cred)
+	if err != nil {
+		return nil, err
+	}
+
+	req := CancelOrderRequest{OrderSN: orderSN}
+	resp, err := s.client.CancelOrder(accessToken, req)
+	if err != nil {
+		if isMarketplaceUnauthorizedError(err) {
+			refreshedToken, refreshErr := s.forceRefreshAccessToken(cred)
+			if refreshErr != nil {
+				return nil, refreshErr
+			}
+			return s.client.CancelOrder(refreshedToken, req)
 		}
 		return nil, err
 	}

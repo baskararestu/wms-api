@@ -91,6 +91,19 @@ type ShipExternalOrderRequest struct {
 	ChannelID string `json:"channel_id"`
 }
 
+type CancelOrderRequest struct {
+	OrderSN string `json:"order_sn"`
+}
+
+type CancelOrderResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		OrderSN        string `json:"order_sn"`
+		Status         string `json:"status"`
+		ShippingStatus string `json:"shipping_status"`
+	} `json:"data"`
+}
+
 // ShipExternalOrderResponse represents the response from external logistic/ship
 type ShipExternalOrderResponse struct {
 	Message string `json:"message"`

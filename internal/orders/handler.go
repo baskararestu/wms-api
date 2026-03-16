@@ -26,6 +26,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	protected.Get("/:order_sn", h.GetOrderDetail)
 	protected.Post("/:order_sn/pick", h.PickOrder)
 	protected.Post("/:order_sn/pack", h.PackOrder)
+	protected.Post("/cancel", validation.New[CancelOrderRequest](), h.CancelOrder)
 	protected.Post("/:order_sn/ship", validation.New[ShipOrderRequest](), h.ShipOrder)
 	protected.Patch("/:id/wms-status", validation.New[UpdateWMSStatusRequest](), h.UpdateWMSStatus)
 	protected.Post("/sync", validation.New[SyncOrdersRequest](), h.SyncOrders)
@@ -228,6 +229,33 @@ func (h *Handler) PackOrder(c *fiber.Ctx) error {
 		Code:    fiber.StatusOK,
 		Message: "Order packed successfully",
 	})
+}
+
+// CancelOrder godoc
+// @Summary Cancel order
+// @Description Cancel an order in the marketplace and persist the cancelled status locally.
+// @Tags Orders
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body CancelOrderRequest true "Cancel order payload"
+// @Success 200 {object} marketplace.CancelOrderResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Router /api/orders/cancel [post]
+func (h *Handler) CancelOrder(c *fiber.Ctx) error {
+	req := c.Locals("payload").(*CancelOrderRequest)
+
+	res, err := h.service.CancelOrder(req.OrderSN)
+	if err != nil {
+		xlogger.Logger.Warn().Str("order_sn", req.OrderSN).Err(err).Msg("Failed to cancel order")
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
 }
 
 // ShipOrder godoc

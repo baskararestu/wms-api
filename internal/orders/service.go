@@ -18,6 +18,7 @@ type Service interface {
 	UpdateWMSStatus(id uuid.UUID, newStatus string) error
 	PickOrder(orderSN string) error
 	PackOrder(orderSN string) error
+	CancelOrder(orderSN string) (*marketplace.CancelOrderResponse, error)
 	ShipOrder(orderSN, channelID string) (*ShipOrderResponse, error)
 	SyncMarketplaceOrders(shopID string) error
 }
@@ -192,6 +193,31 @@ func (s *service) PackOrder(orderSN string) error {
 
 	s.invalidateOrdersCache()
 	return nil
+}
+
+func (s *service) CancelOrder(orderSN string) (*marketplace.CancelOrderResponse, error) {
+	order, err := s.repo.FindOrderBySN(orderSN)
+	if err != nil {
+		return nil, errors.New("order not found")
+	}
+
+	if order.WMSStatus == WMSStatusShipped {
+		return nil, fmt.Errorf("order cannot be cancelled, current wms status: %s", order.WMSStatus)
+	}
+
+	resp, err := s.mpSvc.CancelOrder(order.ShopID, orderSN)
+	if err != nil {
+		xlogger.Logger.Error().Err(err).Str("order_sn", orderSN).Msg("Failed to call marketplace cancel order API")
+		return nil, fmt.Errorf("failed to sync cancellation with marketplace: %v", err)
+	}
+
+	if err := s.repo.UpdateCancellationInfo(orderSN, resp.Data.Status, resp.Data.ShippingStatus, WMSStatusCancelled); err != nil {
+		xlogger.Logger.Error().Err(err).Str("order_sn", orderSN).Msg("Failed to update cancellation info in DB")
+		return nil, errors.New("failed to save cancellation info locally")
+	}
+
+	s.invalidateOrdersCache()
+	return resp, nil
 }
 
 func (s *service) ShipOrder(orderSN, channelID string) (*ShipOrderResponse, error) {

@@ -41,6 +41,20 @@ definitions:
       timestamp:
         type: string
     type: object
+  marketplace.CancelOrderResponse:
+    properties:
+      data:
+        properties:
+          order_sn:
+            type: string
+          shipping_status:
+            type: string
+          status:
+            type: string
+        type: object
+      message:
+        type: string
+    type: object
   marketplace.LinkShopStartResponse:
     properties:
       connected:
@@ -110,6 +124,13 @@ definitions:
         type: integer
       retry_success:
         type: integer
+    type: object
+  orders.CancelOrderRequest:
+    properties:
+      order_sn:
+        type: string
+    required:
+    - order_sn
     type: object
   orders.OrderDetailItem:
     properties:
@@ -778,6 +799,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Ship order
+      tags:
+      - Orders
+  /api/orders/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancel an order in the marketplace and persist the cancelled status
+        locally.
+      parameters:
+      - description: Cancel order payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/orders.CancelOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/marketplace.CancelOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel order
       tags:
       - Orders
   /api/orders/sync:

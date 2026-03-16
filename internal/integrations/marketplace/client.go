@@ -32,6 +32,7 @@ type Client interface {
 	GetShopDetail(accessToken string) (*ShopDetailResponse, error)
 	GetOrderList(accessToken string) (*OrderListResponse, error)
 	GetOrderDetail(accessToken, orderSN string) (*OrderDetailResponse, error)
+	CancelOrder(accessToken string, req CancelOrderRequest) (*CancelOrderResponse, error)
 	ShipOrder(accessToken string, req ShipExternalOrderRequest) (*ShipExternalOrderResponse, error)
 	GetLogisticChannels(accessToken string) (*LogisticChannelsResponse, error)
 	NotifyOrderStatus(req WebhookStatusNotifyRequest) (*OrderStatusNotifyResponse, error)
@@ -467,6 +468,60 @@ func (c *client) GetOrderDetail(accessToken, orderSN string) (*OrderDetailRespon
 		}
 
 		return &detailResp, nil
+	}
+
+	return nil, lastErr
+}
+
+func (c *client) CancelOrder(accessToken string, req CancelOrderRequest) (*CancelOrderResponse, error) {
+	url := fmt.Sprintf("%s/order/cancel", c.baseURL)
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetryCount; attempt++ {
+		httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bodyBytes))
+		if err != nil {
+			return nil, err
+		}
+
+		httpReq.Header.Add("Accept", "application/json")
+		httpReq.Header.Add("Content-Type", "application/json")
+		httpReq.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+		resp, err := c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetryCount {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			httpErr := buildHTTPError("cancel order", httpReq, resp)
+			retryDelay, shouldRetry := shouldRetryStatus(resp, attempt)
+			resp.Body.Close()
+			lastErr = httpErr
+			if shouldRetry {
+				time.Sleep(retryDelay)
+				continue
+			}
+			return nil, httpErr
+		}
+
+		var cancelResp CancelOrderResponse
+		err = json.NewDecoder(resp.Body).Decode(&cancelResp)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		return &cancelResp, nil
 	}
 
 	return nil, lastErr

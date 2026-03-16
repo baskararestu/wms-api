@@ -75,6 +75,10 @@ type SyncOrdersRequest struct {
 	ShopID string `json:"shop_id" validate:"required"`
 }
 
+type CancelOrderRequest struct {
+	OrderSN string `json:"order_sn" validate:"required"`
+}
+
 // ShipOrderRequest represents the payload for POST /orders/:order_sn/ship
 type ShipOrderRequest struct {
 	ChannelID string `json:"channel_id" validate:"required"`

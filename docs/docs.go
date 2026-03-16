@@ -579,6 +579,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/orders/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cancel an order in the marketplace and persist the cancelled status locally.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Cancel order",
+                "parameters": [
+                    {
+                        "description": "Cancel order payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/orders.CancelOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/marketplace.CancelOrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/orders/sync": {
             "post": {
                 "security": [
@@ -1005,6 +1056,28 @@ const docTemplate = `{
                 }
             }
         },
+        "marketplace.CancelOrderResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "order_sn": {
+                            "type": "string"
+                        },
+                        "shipping_status": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "marketplace.LinkShopStartResponse": {
             "type": "object",
             "properties": {
@@ -1110,6 +1183,17 @@ const docTemplate = `{
                 },
                 "retry_success": {
                     "type": "integer"
+                }
+            }
+        },
+        "orders.CancelOrderRequest": {
+            "type": "object",
+            "required": [
+                "order_sn"
+            ],
+            "properties": {
+                "order_sn": {
+                    "type": "string"
                 }
             }
         },

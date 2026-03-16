@@ -21,6 +21,7 @@ type Repository interface {
 	UpdateShippingStatus(orderSN, status string) error
 	UpdateMarketplaceStatus(orderSN, mpStatus, shipStatus, tracking string) error
 	UpdateShipmentInfo(orderSN, trackingNum, shippingStatus, shippingChannel, wmsStatus string) error
+	UpdateCancellationInfo(orderSN, mpStatus, shipStatus, wmsStatus string) error
 }
 
 type repository struct {
@@ -177,6 +178,15 @@ func (r *repository) UpdateShipmentInfo(orderSN, trackingNum, shippingStatus, sh
 		"shipping_status":  shippingStatus,
 		"shipping_channel": shippingChannel,
 		"wms_status":       wmsStatus,
+	}
+	return r.db.Model(&Order{}).Where("order_sn = ?", orderSN).Updates(updates).Error
+}
+
+func (r *repository) UpdateCancellationInfo(orderSN, mpStatus, shipStatus, wmsStatus string) error {
+	updates := map[string]interface{}{
+		"marketplace_status": mpStatus,
+		"shipping_status":    shipStatus,
+		"wms_status":         wmsStatus,
 	}
 	return r.db.Model(&Order{}).Where("order_sn = ?", orderSN).Updates(updates).Error
 }
