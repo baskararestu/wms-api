@@ -100,6 +100,22 @@ type mockMarketplaceRepo struct {
 	upsertCount  int
 }
 
+type mockUserShopRepo struct {
+	shopIDByUserID map[string]string
+	err            error
+}
+
+func (m *mockUserShopRepo) FindShopIDByUserID(userID string) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.shopIDByUserID[userID], nil
+}
+
+func newMockUserShopRepo() *mockUserShopRepo {
+	return &mockUserShopRepo{shopIDByUserID: make(map[string]string)}
+}
+
 func newMockMarketplaceRepo() *mockMarketplaceRepo {
 	return &mockMarketplaceRepo{
 		credByShopID: make(map[string]*MarketplaceCredential),
@@ -140,9 +156,11 @@ func TestStartLinkShopConnectsAndStoresCredential(t *testing.T) {
 	client.shopResp.Data.ShopName = "Shopee - General Store"
 
 	repo := newMockMarketplaceRepo()
-	svc := NewService(client, repo, config.App.RedirectURL)
+	userShopRepo := newMockUserShopRepo()
+	userShopRepo.shopIDByUserID["user-1"] = "shopee-123"
+	svc := NewService(client, repo, userShopRepo, config.App.RedirectURL)
 
-	res, err := svc.StartLinkShop("shopee-123")
+	res, err := svc.StartLinkShop("user-1")
 	if err != nil {
 		t.Fatalf("expected start link shop success, got error: %v", err)
 	}
@@ -175,7 +193,8 @@ func TestCompleteLinkShopStoresCredential(t *testing.T) {
 	client.shopResp.Data.ShopName = "Shopee - General Store"
 
 	repo := newMockMarketplaceRepo()
-	svc := NewService(client, repo, config.App.RedirectURL)
+	userShopRepo := newMockUserShopRepo()
+	svc := NewService(client, repo, userShopRepo, config.App.RedirectURL)
 
 	err := svc.CompleteLinkShop("auth-code", "shopee-123", "pm")
 	if err != nil {
@@ -201,6 +220,7 @@ func TestGetShopDetailByShopIDRefreshesExpiredToken(t *testing.T) {
 	client.shopResp.Data.ShopName = "Shopee Test"
 
 	repo := newMockMarketplaceRepo()
+	userShopRepo := newMockUserShopRepo()
 	repo.credByShopID["shopee-123"] = &MarketplaceCredential{
 		ShopID:       "shopee-123",
 		AccessToken:  "access-old",
@@ -208,7 +228,7 @@ func TestGetShopDetailByShopIDRefreshesExpiredToken(t *testing.T) {
 		ExpiresAt:    time.Now().Add(-1 * time.Minute),
 	}
 
-	svc := NewService(client, repo, config.App.RedirectURL)
+	svc := NewService(client, repo, userShopRepo, config.App.RedirectURL)
 
 	res, err := svc.GetShopDetailByShopID("shopee-123")
 	if err != nil {
@@ -229,7 +249,8 @@ func TestGetShopDetailByShopIDFailsWhenShopNotConnected(t *testing.T) {
 
 	client := &mockMarketplaceClient{}
 	repo := newMockMarketplaceRepo()
-	svc := NewService(client, repo, config.App.RedirectURL)
+	userShopRepo := newMockUserShopRepo()
+	svc := NewService(client, repo, userShopRepo, config.App.RedirectURL)
 
 	_, err := svc.GetShopDetailByShopID("missing-shop")
 	if err == nil {
@@ -244,9 +265,11 @@ func TestStartLinkShopReturnsUnavailableWhenMarketplaceDown(t *testing.T) {
 		authorizeErr: errors.New("authorize failed: status=500 body=\"temporarily unavailable\""),
 	}
 	repo := newMockMarketplaceRepo()
-	svc := NewService(client, repo, config.App.RedirectURL)
+	userShopRepo := newMockUserShopRepo()
+	userShopRepo.shopIDByUserID["user-1"] = "shopee-123"
+	svc := NewService(client, repo, userShopRepo, config.App.RedirectURL)
 
-	_, err := svc.StartLinkShop("shopee-123")
+	_, err := svc.StartLinkShop("user-1")
 	if !errors.Is(err, ErrMarketplaceUnavailable) {
 		t.Fatalf("expected ErrMarketplaceUnavailable, got %v", err)
 	}
