@@ -1,6 +1,7 @@
 package orders
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -77,13 +78,23 @@ func (r *repository) FindOrders(query GetOrderListQuery) ([]Order, int64, error)
 	orderStr := "updated_at desc"
 	if query.SortBy != "" {
 		sortDir := "asc"
-		if query.SortDir == "desc" {
+		if strings.EqualFold(query.SortDir, "desc") {
 			sortDir = "desc"
 		}
 		// simple prevention of sql injection for sort column
-		allowedColumns := map[string]bool{"created_at": true, "updated_at": true, "order_sn": true}
+		allowedColumns := map[string]bool{
+			"created_at":         true,
+			"updated_at":         true,
+			"order_sn":           true,
+			"wms_status":         true,
+			"shipping_status":    true,
+			"marketplace_status": true,
+		}
 		if allowedColumns[query.SortBy] {
 			orderStr = query.SortBy + " " + sortDir
+			if query.SortBy != "updated_at" {
+				orderStr += ", updated_at desc"
+			}
 		}
 	}
 
